@@ -1,7 +1,10 @@
 
 from django.urls import path
 
-from .views import TeacherAssignmentsView
+from .views import (
+    TeacherAssignmentsView,
+    TeacherClassStudentsView,
+)
 
 
 urlpatterns = [
@@ -9,5 +12,11 @@ urlpatterns = [
         "assignments/",
         TeacherAssignmentsView.as_view(),
         name="teacher-assignments",
+    ),
+
+    path(
+        "classes/<int:class_id>/students/",
+        TeacherClassStudentsView.as_view(),
+        name="teacher-class-students",
     ),
 ]

@@ -2,11 +2,12 @@ from decimal import Decimal, InvalidOperation
 import uuid
 
 from rest_framework import generics, status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from academics.models import TeacherAssignment
+from academics.models import Student, TeacherAssignment
 from attendance.models import AttendanceRecord, AttendanceRemark
 from payments.models import FeeInvoice, PaymentTransaction
 from payments.gateways import get_payment_gateway
@@ -20,6 +21,7 @@ from .serializers import (
     ParentProfileSerializer,
     PaymentTransactionSerializer,
     TeacherAssignmentSerializer,
+    TeacherStudentSerializer,
 )
 
 
@@ -321,4 +323,38 @@ class TeacherAssignmentsView(generics.ListAPIView):
                 "class_room__section",
                 "subject__name",
             )
+        )
+
+
+class TeacherClassStudentsView(generics.ListAPIView):
+    permission_classes = [
+        IsAuthenticated,
+        IsTeacher,
+    ]
+
+    serializer_class = TeacherStudentSerializer
+
+    def get_queryset(self):
+        teacher = self.request.user
+        class_id = self.kwargs["class_id"]
+
+        # A teacher may only view the roster of a class they are
+        # actually assigned to (any subject). Returning 404 instead
+        # of 403 avoids revealing whether the class ID even exists.
+        has_access = TeacherAssignment.objects.filter(
+            teacher=teacher,
+            tenant=teacher.tenant,
+            class_room_id=class_id,
+        ).exists()
+
+        if not has_access:
+            raise NotFound("Class not found.")
+
+        return (
+            Student.objects
+            .filter(
+                class_room_id=class_id,
+                tenant=teacher.tenant,
+            )
+            .order_by("first_name", "last_name")
         )
