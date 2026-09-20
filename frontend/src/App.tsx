@@ -11,6 +11,16 @@ import { ParentLayout } from "./pages/parent/ParentLayout"
 import { ParentOverview } from "./pages/parent/ParentOverview"
 import { ParentPayments } from "./pages/parent/ParentPayments"
 import { ParentRemarks } from "./pages/parent/ParentRemarks"
+import { SchoolAdminClasses } from "./pages/school-admin/SchoolAdminClasses"
+import { SchoolAdminFeeInvoices } from "./pages/school-admin/SchoolAdminFeeInvoices"
+import { SchoolAdminLayout } from "./pages/school-admin/SchoolAdminLayout"
+import { SchoolAdminParents } from "./pages/school-admin/SchoolAdminParents"
+import { SchoolAdminPayments } from "./pages/school-admin/SchoolAdminPayments"
+import { SchoolAdminSchoolSetup } from "./pages/school-admin/SchoolAdminSchoolSetup"
+import { SchoolAdminStudents } from "./pages/school-admin/SchoolAdminStudents"
+import { SchoolAdminSubjects } from "./pages/school-admin/SchoolAdminSubjects"
+import { SchoolAdminTeacherAssignments } from "./pages/school-admin/SchoolAdminTeacherAssignments"
+import { SchoolAdminTeachers } from "./pages/school-admin/SchoolAdminTeachers"
 import { TeacherAssignments } from "./pages/teacher/TeacherAssignments"
 import { TeacherAttendanceHistory } from "./pages/teacher/TeacherAttendanceHistory"
 import { TeacherLayout } from "./pages/teacher/TeacherLayout"
@@ -57,6 +67,20 @@ function AppRoutes() {
         </Route>
         <Route path="/teacher/mark-attendance/:classId/:subjectId" element={<TeacherLayout />}>
           <Route index element={<TeacherMarkAttendance />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["SCHOOL_ADMIN"]} />}>
+        <Route path="/school-admin" element={<SchoolAdminLayout />}>
+          <Route index element={<SchoolAdminClasses />} />
+          <Route path="subjects" element={<SchoolAdminSubjects />} />
+          <Route path="students" element={<SchoolAdminStudents />} />
+          <Route path="teachers" element={<SchoolAdminTeachers />} />
+          <Route path="teacher-assignments" element={<SchoolAdminTeacherAssignments />} />
+          <Route path="parents" element={<SchoolAdminParents />} />
+          <Route path="fee-invoices" element={<SchoolAdminFeeInvoices />} />
+          <Route path="payments" element={<SchoolAdminPayments />} />
+          <Route path="school" element={<SchoolAdminSchoolSetup />} />
         </Route>
       </Route>
 

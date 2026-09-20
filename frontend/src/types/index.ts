@@ -99,6 +99,105 @@ export interface TeacherAttendanceInfo {
   updated_at: string
 }
 
+export interface SchoolAdminClassInfo {
+  id: number
+  name: string
+  section: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SchoolAdminSubjectInfo {
+  id: number
+  name: string
+  code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SchoolAdminStudentInfo {
+  id: number
+  student_id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string | null
+  class_room: number
+  class_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SchoolAdminTeacherInfo {
+  id: number
+  username: string
+  first_name: string
+  last_name: string
+  email: string
+  is_active: boolean
+  date_joined: string
+}
+
+export interface SchoolAdminTeacherAssignmentInfo {
+  id: number
+  teacher: number
+  teacher_name: string
+  class_room: number
+  class_name: string
+  subject: number
+  subject_name: string
+  created_at: string
+}
+
+export interface SchoolAdminParentInfo {
+  id: number
+  username: string
+  first_name: string
+  last_name: string
+  email: string
+  student_id: string
+  student_name: string
+  must_change_password: boolean
+  created_at: string
+}
+
+export interface SchoolAdminFeeInvoiceInfo {
+  id: number
+  invoice_number: string
+  student: number
+  student_name: string
+  description: string
+  amount: string
+  due_date: string
+  status: "UNPAID" | "PAID" | "OVERDUE" | "CANCELLED"
+  created_at: string
+  updated_at: string
+}
+
+export interface SchoolAdminPaymentInfo {
+  id: number
+  transaction_id: string
+  invoice_number: string
+  student_name: string
+  parent_username: string
+  gateway: string
+  amount: string
+  status: string
+  gateway_reference: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SchoolInfo {
+  id: number
+  name: string
+  slug: string
+  email: string
+  phone: string
+  address: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ApiError {
   response?: {
     data?: Record<string, unknown> | { detail?: string }
