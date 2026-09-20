@@ -67,6 +67,38 @@ export interface PaymentTransactionInfo {
   updated_at: string
 }
 
+export interface TeacherAssignmentInfo {
+  id: number
+  class_id: number
+  class_name: string
+  subject_id: number
+  subject_name: string
+  subject_code: string
+  created_at: string
+}
+
+export interface TeacherStudentInfo {
+  id: number
+  student_id: string
+  student_name: string
+  class_name: string
+  date_of_birth: string | null
+}
+
+export interface TeacherAttendanceInfo {
+  id: number
+  student_id: string
+  student_name: string
+  class_name: string
+  subject_id: number
+  subject_name: string
+  teacher_name: string
+  date: string
+  status: "PRESENT" | "ABSENT" | "LATE"
+  created_at: string
+  updated_at: string
+}
+
 export interface ApiError {
   response?: {
     data?: Record<string, unknown> | { detail?: string }

@@ -11,6 +11,10 @@ import { ParentLayout } from "./pages/parent/ParentLayout"
 import { ParentOverview } from "./pages/parent/ParentOverview"
 import { ParentPayments } from "./pages/parent/ParentPayments"
 import { ParentRemarks } from "./pages/parent/ParentRemarks"
+import { TeacherAssignments } from "./pages/teacher/TeacherAssignments"
+import { TeacherAttendanceHistory } from "./pages/teacher/TeacherAttendanceHistory"
+import { TeacherLayout } from "./pages/teacher/TeacherLayout"
+import { TeacherMarkAttendance } from "./pages/teacher/TeacherMarkAttendance"
 
 const queryClient = new QueryClient()
 
@@ -43,6 +47,16 @@ function AppRoutes() {
           <Route path="fees" element={<ParentFees />} />
           <Route path="payments" element={<ParentPayments />} />
           <Route path="change-password" element={<ParentChangePassword />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["TEACHER"]} />}>
+        <Route path="/teacher" element={<TeacherLayout />}>
+          <Route index element={<TeacherAssignments />} />
+          <Route path="attendance" element={<TeacherAttendanceHistory />} />
+        </Route>
+        <Route path="/teacher/mark-attendance/:classId/:subjectId" element={<TeacherLayout />}>
+          <Route index element={<TeacherMarkAttendance />} />
         </Route>
       </Route>
 
