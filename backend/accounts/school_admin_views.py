@@ -1,13 +1,16 @@
-from rest_framework import viewsets
+from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from academics.models import Class, Student, Subject
+from academics.models import Class, Student, Subject, TeacherAssignment
 
+from .models import User
 from .permissions import IsSchoolAdmin
 from .school_admin_serializers import (
     SchoolAdminClassSerializer,
     SchoolAdminStudentSerializer,
     SchoolAdminSubjectSerializer,
+    SchoolAdminTeacherAssignmentSerializer,
+    SchoolAdminTeacherSerializer,
 )
 
 
@@ -50,3 +53,50 @@ class SchoolAdminStudentViewSet(viewsets.ModelViewSet):
             )
 
         return queryset.order_by("first_name", "last_name")
+
+
+class SchoolAdminTeacherViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    Teacher accounts are never hard-deleted here: their
+    TeacherAssignment / AttendanceRecord / AttendanceRemark rows
+    cascade-delete with the User, which would silently erase other
+    students' attendance history. Use PATCH is_active=false instead.
+    """
+
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    serializer_class = SchoolAdminTeacherSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(
+            role=User.Role.TEACHER,
+            tenant=self.request.user.tenant,
+        ).order_by("first_name", "last_name")
+
+
+class SchoolAdminTeacherAssignmentViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    serializer_class = SchoolAdminTeacherAssignmentSerializer
+
+    def get_queryset(self):
+        return (
+            TeacherAssignment.objects
+            .filter(tenant=self.request.user.tenant)
+            .select_related("teacher", "class_room", "subject")
+            .order_by(
+                "class_room__name",
+                "class_room__section",
+                "subject__name",
+            )
+        )
