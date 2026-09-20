@@ -22,6 +22,7 @@ from .serializers import (
     PaymentTransactionSerializer,
     TeacherAssignmentSerializer,
     TeacherAttendanceCreateSerializer,
+    TeacherAttendanceRemarkSerializer,
     TeacherAttendanceSerializer,
     TeacherStudentSerializer,
 )
@@ -414,5 +415,36 @@ class TeacherAttendanceView(generics.ListCreateAPIView):
 
         return Response(
             output_serializer.data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class TeacherAttendanceRemarkView(APIView):
+    permission_classes = [
+        IsAuthenticated,
+        IsTeacher,
+    ]
+
+    def post(self, request, attendance_id):
+        data = {
+            "attendance_record": attendance_id,
+            "remark": request.data.get("remark"),
+        }
+
+        serializer = TeacherAttendanceRemarkSerializer(
+            data=data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        remark = serializer.save()
+
+        return Response(
+            {
+                "id": remark.id,
+                "attendance_record": remark.attendance_record_id,
+                "remark": remark.remark,
+                "created_at": remark.created_at,
+            },
             status=status.HTTP_201_CREATED,
         )
