@@ -4,6 +4,9 @@ import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-d
 import { AuthProvider, useAuth } from "./auth/AuthContext"
 import { ProtectedRoute } from "./auth/ProtectedRoute"
 import { LoginPage } from "./pages/LoginPage"
+import { PlatformAdminLayout } from "./pages/platform-admin/PlatformAdminLayout"
+import { PlatformAdminSchoolDetail } from "./pages/platform-admin/PlatformAdminSchoolDetail"
+import { PlatformAdminSchools } from "./pages/platform-admin/PlatformAdminSchools"
 import { ParentAttendance } from "./pages/parent/ParentAttendance"
 import { ParentChangePassword } from "./pages/parent/ParentChangePassword"
 import { ParentFees } from "./pages/parent/ParentFees"
@@ -81,6 +84,15 @@ function AppRoutes() {
           <Route path="fee-invoices" element={<SchoolAdminFeeInvoices />} />
           <Route path="payments" element={<SchoolAdminPayments />} />
           <Route path="school" element={<SchoolAdminSchoolSetup />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["PLATFORM_ADMIN"]} />}>
+        <Route path="/platform-admin" element={<PlatformAdminLayout />}>
+          <Route index element={<PlatformAdminSchools />} />
+        </Route>
+        <Route path="/platform-admin/schools/:tenantId" element={<PlatformAdminLayout />}>
+          <Route index element={<PlatformAdminSchoolDetail />} />
         </Route>
       </Route>
 

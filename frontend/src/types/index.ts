@@ -198,6 +198,28 @@ export interface SchoolInfo {
   updated_at: string
 }
 
+export interface PlatformAdminTenantInfo {
+  id: number
+  name: string
+  slug: string
+  email: string
+  phone: string
+  address: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PlatformAdminSchoolAdminInfo {
+  id: number
+  username: string
+  first_name: string
+  last_name: string
+  email: string
+  is_active: boolean
+  date_joined: string
+  temporary_password: string | null
+}
+
 export interface ApiError {
   response?: {
     data?: Record<string, unknown> | { detail?: string }
