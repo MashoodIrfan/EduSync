@@ -12,6 +12,7 @@ from .school_admin_views import (
     SchoolAdminSubjectViewSet,
     SchoolAdminTeacherAssignmentViewSet,
     SchoolAdminTeacherViewSet,
+    SchoolAdminTenantView,
 )
 
 
@@ -39,5 +40,11 @@ router.register(
 
 
 urlpatterns = [
+    path(
+        "school/",
+        SchoolAdminTenantView.as_view(),
+        name="school-admin-school-setup",
+    ),
+
     path("", include(router.urls)),
 ]

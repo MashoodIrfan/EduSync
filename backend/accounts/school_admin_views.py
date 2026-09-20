@@ -2,6 +2,7 @@ from django.utils.crypto import get_random_string
 
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -20,6 +21,7 @@ from .school_admin_serializers import (
     SchoolAdminSubjectSerializer,
     SchoolAdminTeacherAssignmentSerializer,
     SchoolAdminTeacherSerializer,
+    SchoolAdminTenantSerializer,
 )
 
 
@@ -203,3 +205,11 @@ class SchoolAdminPaymentTransactionViewSet(
             queryset = queryset.filter(status=payment_status)
 
         return queryset.order_by("-created_at")
+
+
+class SchoolAdminTenantView(RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    serializer_class = SchoolAdminTenantSerializer
+
+    def get_object(self):
+        return self.request.user.tenant

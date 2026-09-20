@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from academics.models import Class, Student, Subject, TeacherAssignment
 from payments.models import FeeInvoice, PaymentTransaction
+from tenants.models import Tenant
 
 from .models import ParentProfile, User
 
@@ -541,3 +542,29 @@ class SchoolAdminPaymentTransactionSerializer(
             f"{student.first_name} "
             f"{student.last_name}"
         ).strip()
+
+
+# =============================================================
+# SCHOOL SETUP
+# =============================================================
+
+
+class SchoolAdminTenantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tenant
+        fields = (
+            "id",
+            "name",
+            "slug",
+            "email",
+            "phone",
+            "address",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "slug",
+            "created_at",
+            "updated_at",
+        )
