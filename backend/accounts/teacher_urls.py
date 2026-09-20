@@ -3,6 +3,7 @@ from django.urls import path
 
 from .views import (
     TeacherAssignmentsView,
+    TeacherAttendanceView,
     TeacherClassStudentsView,
 )
 
@@ -18,5 +19,11 @@ urlpatterns = [
         "classes/<int:class_id>/students/",
         TeacherClassStudentsView.as_view(),
         name="teacher-class-students",
+    ),
+
+    path(
+        "attendance/",
+        TeacherAttendanceView.as_view(),
+        name="teacher-attendance",
     ),
 ]

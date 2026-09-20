@@ -21,6 +21,8 @@ from .serializers import (
     ParentProfileSerializer,
     PaymentTransactionSerializer,
     TeacherAssignmentSerializer,
+    TeacherAttendanceCreateSerializer,
+    TeacherAttendanceSerializer,
     TeacherStudentSerializer,
 )
 
@@ -357,4 +359,60 @@ class TeacherClassStudentsView(generics.ListAPIView):
                 tenant=teacher.tenant,
             )
             .order_by("first_name", "last_name")
+        )
+
+
+class TeacherAttendanceView(generics.ListCreateAPIView):
+    permission_classes = [
+        IsAuthenticated,
+        IsTeacher,
+    ]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return TeacherAttendanceCreateSerializer
+
+        return TeacherAttendanceSerializer
+
+    def get_queryset(self):
+        queryset = (
+            AttendanceRecord.objects
+            .filter(
+                teacher=self.request.user,
+                tenant=self.request.user.tenant,
+            )
+            .select_related(
+                "student",
+                "class_room",
+                "subject",
+                "teacher",
+            )
+        )
+
+        class_room_id = self.request.query_params.get("class_room")
+        subject_id = self.request.query_params.get("subject")
+        date = self.request.query_params.get("date")
+
+        if class_room_id:
+            queryset = queryset.filter(class_room_id=class_room_id)
+
+        if subject_id:
+            queryset = queryset.filter(subject_id=subject_id)
+
+        if date:
+            queryset = queryset.filter(date=date)
+
+        return queryset.order_by("-date", "-id")
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        attendance = serializer.save()
+
+        output_serializer = TeacherAttendanceSerializer(attendance)
+
+        return Response(
+            output_serializer.data,
+            status=status.HTTP_201_CREATED,
         )
