@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'tenants',
     'academics',
     'attendance',
+    'payments',
     'rest_framework',
 ]
 
