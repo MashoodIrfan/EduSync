@@ -1,3 +1,4 @@
+import { CalendarCheck, CreditCard, KeyRound, LayoutDashboard, MessageSquare, Receipt } from "lucide-react"
 import { Navigate, useLocation } from "react-router-dom"
 
 import { useParentProfile } from "../../api/parent"
@@ -5,15 +6,15 @@ import { PortalLayout } from "../../components/PortalLayout"
 import { Spinner } from "../../components/ui"
 
 const FULL_NAV = [
-  { to: "/parent", label: "Overview", end: true },
-  { to: "/parent/attendance", label: "Attendance" },
-  { to: "/parent/remarks", label: "Remarks" },
-  { to: "/parent/fees", label: "Fees" },
-  { to: "/parent/payments", label: "Payments" },
-  { to: "/parent/change-password", label: "Change Password" },
+  { to: "/parent", label: "Overview", end: true, icon: LayoutDashboard },
+  { to: "/parent/attendance", label: "Attendance", icon: CalendarCheck },
+  { to: "/parent/remarks", label: "Remarks", icon: MessageSquare },
+  { to: "/parent/fees", label: "Fees", icon: Receipt },
+  { to: "/parent/payments", label: "Payments", icon: CreditCard },
+  { to: "/parent/change-password", label: "Change Password", icon: KeyRound },
 ]
 
-const RESTRICTED_NAV = [{ to: "/parent/change-password", label: "Change Password" }]
+const RESTRICTED_NAV = [{ to: "/parent/change-password", label: "Change Password", icon: KeyRound }]
 
 export function ParentLayout() {
   const { data: profile, isLoading } = useParentProfile()
@@ -35,10 +36,8 @@ export function ParentLayout() {
       navItems={mustChangePassword ? RESTRICTED_NAV : FULL_NAV}
       banner={
         mustChangePassword ? (
-          <div className="mx-auto max-w-6xl px-4 pt-4">
-            <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-              Please set a new password before using the parent portal.
-            </div>
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 sm:px-6 lg:px-8">
+            Please set a new password before using the parent portal.
           </div>
         ) : undefined
       }
