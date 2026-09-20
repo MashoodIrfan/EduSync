@@ -1,24 +1,40 @@
 from datetime import date
 
-from django.test import TestCase
-
 from rest_framework import status
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from academics.models import Class, Student, Subject, TeacherAssignment
 from attendance.models import AttendanceRecord, AttendanceRemark
 from payments.models import FeeInvoice
 from tenants.models import Tenant
+from tenants.test_utils import RLSTestCase
 
 from .models import ParentProfile, User
 
 
-class BaseMultiTenantTestCase(TestCase):
+class BaseMultiTenantTestCase(RLSTestCase):
     """
     Sets up two separate schools (tenants) with their own class,
     subject, student and teacher, so every test can assert that a
     user from tenant A can never see or touch tenant B's data.
+
+    Authenticates with a real, signed JWT (not DRF's
+    force_authenticate() shortcut) so that TenantContextMiddleware —
+    which decodes the Authorization header itself, since request.user
+    isn't resolved yet at the point it runs — sees the same tenant
+    context a real client request would.
     """
+
+    def authenticate_as(self, user):
+        access = RefreshToken.for_user(user).access_token
+        access["role"] = user.role
+        access["tenant_id"] = user.tenant_id
+        access["username"] = user.username
+        access["first_name"] = user.first_name
+        access["last_name"] = user.last_name
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 
     def setUp(self):
         self.client = APIClient()
@@ -103,7 +119,7 @@ class BaseMultiTenantTestCase(TestCase):
 
 class TeacherAPITests(BaseMultiTenantTestCase):
     def test_teacher_sees_only_own_assignments(self):
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         response = self.client.get("/api/teacher/assignments/")
 
@@ -114,7 +130,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
         )
 
     def test_teacher_can_view_students_of_assigned_class(self):
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         response = self.client.get(
             f"/api/teacher/classes/{self.class_a.id}/students/"
@@ -129,7 +145,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
     def test_teacher_cannot_view_students_of_unassigned_class(self):
         # teacher_b has no assignment at all, not even in their own
         # tenant's class.
-        self.client.force_authenticate(self.teacher_b)
+        self.authenticate_as(self.teacher_b)
 
         response = self.client.get(
             f"/api/teacher/classes/{self.class_b.id}/students/"
@@ -140,7 +156,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
         )
 
     def test_teacher_cannot_view_students_of_other_tenant_class(self):
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         response = self.client.get(
             f"/api/teacher/classes/{self.class_b.id}/students/"
@@ -153,7 +169,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
     def test_teacher_can_mark_attendance_for_assigned_class_subject(
         self,
     ):
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         response = self.client.post(
             "/api/teacher/attendance/",
@@ -174,7 +190,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
         )
 
     def test_teacher_cannot_mark_attendance_without_assignment(self):
-        self.client.force_authenticate(self.teacher_b)
+        self.authenticate_as(self.teacher_b)
 
         response = self.client.post(
             "/api/teacher/attendance/",
@@ -195,7 +211,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
         )
 
     def test_duplicate_attendance_rejected(self):
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         payload = {
             "student": self.student_a.id,
@@ -230,7 +246,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
             status=AttendanceRecord.Status.PRESENT,
         )
 
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         response = self.client.post(
             f"/api/teacher/attendance/{attendance.id}/remark/",
@@ -266,7 +282,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
             tenant=self.tenant_a,
         )
 
-        self.client.force_authenticate(other_teacher)
+        self.authenticate_as(other_teacher)
 
         response = self.client.post(
             f"/api/teacher/attendance/{attendance.id}/remark/",
@@ -283,7 +299,7 @@ class TeacherAPITests(BaseMultiTenantTestCase):
 
 class SchoolAdminAPITests(BaseMultiTenantTestCase):
     def test_non_school_admin_forbidden(self):
-        self.client.force_authenticate(self.teacher_a)
+        self.authenticate_as(self.teacher_a)
 
         response = self.client.get("/api/school-admin/classes/")
 
@@ -292,7 +308,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
         )
 
     def test_school_admin_sees_only_own_tenant_classes(self):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.get("/api/school-admin/classes/")
 
@@ -300,7 +316,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
         self.assertEqual(len(response.data), 1)
 
     def test_school_admin_can_create_student_in_own_class(self):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/students/",
@@ -320,7 +336,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
     def test_school_admin_cannot_create_student_in_other_tenant_class(
         self,
     ):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/students/",
@@ -340,7 +356,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
     def test_school_admin_can_create_teacher_and_teacher_can_login(
         self,
     ):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/teachers/",
@@ -374,7 +390,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
         self.assertIn("access", login_response.data)
 
     def test_school_admin_cannot_delete_teacher(self):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.delete(
             f"/api/school-admin/teachers/{self.teacher_a.id}/"
@@ -388,7 +404,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
     def test_school_admin_cannot_assign_teacher_from_other_tenant(
         self,
     ):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/teacher-assignments/",
@@ -406,7 +422,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
     def test_school_admin_can_create_parent_and_parent_can_login(
         self,
     ):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/parents/",
@@ -443,7 +459,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
     def test_school_admin_cannot_create_parent_for_other_tenant_student(
         self,
     ):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/parents/",
@@ -470,7 +486,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
             must_change_password=False,
         )
 
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             f"/api/school-admin/parents/{profile.id}/reset-password/"
@@ -482,7 +498,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
         self.assertTrue(profile.must_change_password)
 
     def test_school_admin_can_create_fee_invoice(self):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.post(
             "/api/school-admin/fee-invoices/",
@@ -509,7 +525,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
             due_date="2026-09-30",
         )
 
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.patch(
             f"/api/school-admin/fee-invoices/{invoice.id}/",
@@ -530,7 +546,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
             due_date="2026-09-30",
         )
 
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.get(
             "/api/school-admin/fee-invoices/"
@@ -540,7 +556,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
         self.assertEqual(len(response.data), 0)
 
     def test_school_admin_can_view_and_update_school_setup(self):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         get_response = self.client.get("/api/school-admin/school/")
         self.assertEqual(
@@ -571,7 +587,7 @@ class PlatformAdminAPITests(BaseMultiTenantTestCase):
     def test_school_admin_forbidden_from_platform_admin_endpoints(
         self,
     ):
-        self.client.force_authenticate(self.school_admin_a)
+        self.authenticate_as(self.school_admin_a)
 
         response = self.client.get("/api/platform-admin/tenants/")
 
@@ -580,7 +596,7 @@ class PlatformAdminAPITests(BaseMultiTenantTestCase):
         )
 
     def test_platform_admin_can_create_tenant(self):
-        self.client.force_authenticate(self.platform_admin)
+        self.authenticate_as(self.platform_admin)
 
         response = self.client.post(
             "/api/platform-admin/tenants/",
@@ -596,7 +612,7 @@ class PlatformAdminAPITests(BaseMultiTenantTestCase):
         self.assertEqual(response.data["slug"], "new-horizon-school")
 
     def test_tenant_has_no_delete_endpoint(self):
-        self.client.force_authenticate(self.platform_admin)
+        self.authenticate_as(self.platform_admin)
 
         response = self.client.delete(
             f"/api/platform-admin/tenants/{self.tenant_a.id}/"
@@ -608,7 +624,7 @@ class PlatformAdminAPITests(BaseMultiTenantTestCase):
         )
 
     def test_platform_admin_can_create_school_admin_for_tenant(self):
-        self.client.force_authenticate(self.platform_admin)
+        self.authenticate_as(self.platform_admin)
 
         response = self.client.post(
             f"/api/platform-admin/tenants/{self.tenant_b.id}/"

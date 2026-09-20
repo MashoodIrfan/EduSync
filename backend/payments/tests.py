@@ -1,7 +1,7 @@
 
 from datetime import date
 
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.urls import reverse
 
 from rest_framework.test import APIClient
@@ -12,6 +12,7 @@ from academics.models import Student
 from payments.gateways.jazzcash import JazzCashGateway
 from payments.models import FeeInvoice, PaymentTransaction
 from tenants.models import Tenant
+from tenants.test_utils import RLSTestCase
 
 
 @override_settings(
@@ -24,7 +25,7 @@ from tenants.models import Tenant
         "jazzcash/return/"
     ),
 )
-class JazzCashCallbackTests(TestCase):
+class JazzCashCallbackTests(RLSTestCase):
     def setUp(self):
         self.client = APIClient()
 
