@@ -41,3 +41,14 @@ class IsTeacher(BasePermission):
             request.user.is_authenticated
             and request.user.role == "TEACHER"
         )
+
+
+class IsSchoolAdmin(BasePermission):
+    message = "Only school admin accounts can access this resource."
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.role == "SCHOOL_ADMIN"
+            and request.user.tenant_id is not None
+        )

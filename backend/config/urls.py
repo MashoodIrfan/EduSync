@@ -37,6 +37,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/school-admin/",
+        include("accounts.school_admin_urls"),
+    ),
+
+    path(
         "api/payments/",
         include("payments.urls"),
     ),
