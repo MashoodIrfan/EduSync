@@ -31,3 +31,13 @@ class CanUseParentPortal(BasePermission):
             return False
 
         return not profile.must_change_password
+
+
+class IsTeacher(BasePermission):
+    message = "Only teacher accounts can access this resource."
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.role == "TEACHER"
+        )
