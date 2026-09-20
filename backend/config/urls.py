@@ -27,6 +27,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/parent/",
+        include("accounts.urls"),
+    ),
+
+    path(
         "api/payments/",
         include("payments.urls"),
     ),
