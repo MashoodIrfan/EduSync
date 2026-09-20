@@ -1,10 +1,12 @@
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
+from django.utils.crypto import get_random_string
 
 from rest_framework import serializers
 
 from academics.models import Class, Student, Subject, TeacherAssignment
 
-from .models import User
+from .models import ParentProfile, User
 
 
 def _check_same_tenant(value, request, label):
@@ -228,6 +230,134 @@ class SchoolAdminTeacherAssignmentSerializer(
         assignment.save()
 
         return assignment
+
+
+# =============================================================
+# PARENT ACCOUNTS
+# =============================================================
+
+
+class SchoolAdminParentListSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        source="user.username", read_only=True
+    )
+    first_name = serializers.CharField(
+        source="user.first_name", read_only=True
+    )
+    last_name = serializers.CharField(
+        source="user.last_name", read_only=True
+    )
+    email = serializers.EmailField(
+        source="user.email", read_only=True
+    )
+    student_id = serializers.CharField(
+        source="student.student_id", read_only=True
+    )
+    student_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ParentProfile
+        fields = (
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "student_id",
+            "student_name",
+            "must_change_password",
+            "created_at",
+        )
+
+    def get_student_name(self, obj):
+        return (
+            f"{obj.student.first_name} "
+            f"{obj.student.last_name}"
+        ).strip()
+
+
+class SchoolAdminParentCreateSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    first_name = serializers.CharField(
+        required=False, allow_blank=True
+    )
+    last_name = serializers.CharField(
+        required=False, allow_blank=True
+    )
+    email = serializers.EmailField(
+        required=False, allow_blank=True
+    )
+    student = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.all()
+    )
+    password = serializers.CharField(
+        required=False, write_only=True
+    )
+
+    def validate_student(self, value):
+        return _check_same_tenant(
+            value, self.context["request"], "Student"
+        )
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                "This username is already taken."
+            )
+
+        return value
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        student = validated_data["student"]
+        password = (
+            validated_data.get("password")
+            or get_random_string(10)
+        )
+
+        with transaction.atomic():
+            parent_user = User(
+                username=validated_data["username"],
+                first_name=validated_data.get(
+                    "first_name", ""
+                ),
+                last_name=validated_data.get(
+                    "last_name", ""
+                ),
+                email=validated_data.get("email", ""),
+                role=User.Role.PARENT,
+                tenant=request.user.tenant,
+            )
+            parent_user.set_password(password)
+            parent_user.full_clean(exclude=["password"])
+            parent_user.save()
+
+            profile = ParentProfile(
+                user=parent_user,
+                student=student,
+                must_change_password=True,
+            )
+            profile.full_clean()
+            profile.save()
+
+        profile._temporary_password = password
+
+        return profile
+
+    def to_representation(self, instance):
+        return {
+            "id": instance.id,
+            "username": instance.user.username,
+            "student_id": instance.student.student_id,
+            "student_name": (
+                f"{instance.student.first_name} "
+                f"{instance.student.last_name}"
+            ).strip(),
+            "must_change_password": instance.must_change_password,
+            "temporary_password": getattr(
+                instance, "_temporary_password", None
+            ),
+        }
 
 
 # =============================================================

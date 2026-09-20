@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from .school_admin_views import (
     SchoolAdminClassViewSet,
+    SchoolAdminParentViewSet,
     SchoolAdminStudentViewSet,
     SchoolAdminSubjectViewSet,
     SchoolAdminTeacherAssignmentViewSet,
@@ -22,6 +23,7 @@ router.register(
     SchoolAdminTeacherAssignmentViewSet,
     basename="school-admin-teacher-assignment",
 )
+router.register("parents", SchoolAdminParentViewSet, basename="school-admin-parent")
 
 
 urlpatterns = [

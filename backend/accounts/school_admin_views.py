@@ -1,12 +1,18 @@
+from django.utils.crypto import get_random_string
+
 from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from academics.models import Class, Student, Subject, TeacherAssignment
 
-from .models import User
+from .models import ParentProfile, User
 from .permissions import IsSchoolAdmin
 from .school_admin_serializers import (
     SchoolAdminClassSerializer,
+    SchoolAdminParentCreateSerializer,
+    SchoolAdminParentListSerializer,
     SchoolAdminStudentSerializer,
     SchoolAdminSubjectSerializer,
     SchoolAdminTeacherAssignmentSerializer,
@@ -99,4 +105,52 @@ class SchoolAdminTeacherAssignmentViewSet(
                 "class_room__section",
                 "subject__name",
             )
+        )
+
+
+class SchoolAdminParentViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return (
+            ParentProfile.objects
+            .filter(user__tenant=self.request.user.tenant)
+            .select_related("user", "student")
+            .order_by("user__first_name", "user__last_name")
+        )
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return SchoolAdminParentCreateSerializer
+
+        return SchoolAdminParentListSerializer
+
+    def perform_destroy(self, instance):
+        # Deleting the login account cascades to the ParentProfile.
+        instance.user.delete()
+
+    @action(detail=True, methods=["post"], url_path="reset-password")
+    def reset_password(self, request, pk=None):
+        profile = self.get_object()
+        new_password = get_random_string(10)
+
+        profile.user.set_password(new_password)
+        profile.user.save(update_fields=["password"])
+
+        profile.must_change_password = True
+        profile.save(update_fields=["must_change_password"])
+
+        return Response(
+            {
+                "id": profile.id,
+                "username": profile.user.username,
+                "temporary_password": new_password,
+                "must_change_password": True,
+            }
         )
