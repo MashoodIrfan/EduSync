@@ -42,6 +42,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/platform-admin/",
+        include("accounts.platform_admin_urls"),
+    ),
+
+    path(
         "api/payments/",
         include("payments.urls"),
     ),

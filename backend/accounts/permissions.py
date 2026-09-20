@@ -52,3 +52,13 @@ class IsSchoolAdmin(BasePermission):
             and request.user.role == "SCHOOL_ADMIN"
             and request.user.tenant_id is not None
         )
+
+
+class IsPlatformAdmin(BasePermission):
+    message = "Only platform admin accounts can access this resource."
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.role == "PLATFORM_ADMIN"
+        )
