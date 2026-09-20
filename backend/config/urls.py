@@ -32,6 +32,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/teacher/",
+        include("accounts.teacher_urls"),
+    ),
+
+    path(
         "api/payments/",
         include("payments.urls"),
     ),

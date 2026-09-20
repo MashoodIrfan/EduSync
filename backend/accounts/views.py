@@ -6,11 +6,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from academics.models import TeacherAssignment
 from attendance.models import AttendanceRecord, AttendanceRemark
 from payments.models import FeeInvoice, PaymentTransaction
 from payments.gateways import get_payment_gateway
 
-from .permissions import CanUseParentPortal, IsParent
+from .permissions import CanUseParentPortal, IsParent, IsTeacher
 from .serializers import (
     AttendanceRecordSerializer,
     AttendanceRemarkSerializer,
@@ -18,6 +19,7 @@ from .serializers import (
     ParentChangePasswordSerializer,
     ParentProfileSerializer,
     PaymentTransactionSerializer,
+    TeacherAssignmentSerializer,
 )
 
 
@@ -287,4 +289,36 @@ class ParentInitiatePaymentView(APIView):
                 "form_fields": payment_payload,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+# =============================================================
+# TEACHER VIEWS
+# =============================================================
+
+
+class TeacherAssignmentsView(generics.ListAPIView):
+    permission_classes = [
+        IsAuthenticated,
+        IsTeacher,
+    ]
+
+    serializer_class = TeacherAssignmentSerializer
+
+    def get_queryset(self):
+        return (
+            TeacherAssignment.objects
+            .filter(
+                teacher=self.request.user,
+                tenant=self.request.user.tenant,
+            )
+            .select_related(
+                "class_room",
+                "subject",
+            )
+            .order_by(
+                "class_room__name",
+                "class_room__section",
+                "subject__name",
+            )
         )
