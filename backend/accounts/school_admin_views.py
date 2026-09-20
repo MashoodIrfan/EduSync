@@ -6,13 +6,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from academics.models import Class, Student, Subject, TeacherAssignment
+from payments.models import FeeInvoice, PaymentTransaction
 
 from .models import ParentProfile, User
 from .permissions import IsSchoolAdmin
 from .school_admin_serializers import (
     SchoolAdminClassSerializer,
+    SchoolAdminFeeInvoiceSerializer,
     SchoolAdminParentCreateSerializer,
     SchoolAdminParentListSerializer,
+    SchoolAdminPaymentTransactionSerializer,
     SchoolAdminStudentSerializer,
     SchoolAdminSubjectSerializer,
     SchoolAdminTeacherAssignmentSerializer,
@@ -154,3 +157,49 @@ class SchoolAdminParentViewSet(
                 "must_change_password": True,
             }
         )
+
+
+class SchoolAdminFeeInvoiceViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    serializer_class = SchoolAdminFeeInvoiceSerializer
+
+    def get_queryset(self):
+        queryset = FeeInvoice.objects.filter(
+            tenant=self.request.user.tenant
+        ).select_related("student")
+
+        student_id = self.request.query_params.get("student")
+        invoice_status = self.request.query_params.get("status")
+
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+
+        if invoice_status:
+            queryset = queryset.filter(status=invoice_status)
+
+        return queryset.order_by("-due_date", "-created_at")
+
+
+class SchoolAdminPaymentTransactionViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    serializer_class = SchoolAdminPaymentTransactionSerializer
+
+    def get_queryset(self):
+        queryset = PaymentTransaction.objects.filter(
+            tenant=self.request.user.tenant
+        ).select_related("invoice", "invoice__student", "parent")
+
+        invoice_id = self.request.query_params.get("invoice")
+        payment_status = self.request.query_params.get("status")
+
+        if invoice_id:
+            queryset = queryset.filter(invoice_id=invoice_id)
+
+        if payment_status:
+            queryset = queryset.filter(status=payment_status)
+
+        return queryset.order_by("-created_at")

@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from django.utils.crypto import get_random_string
@@ -5,6 +7,7 @@ from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 from academics.models import Class, Student, Subject, TeacherAssignment
+from payments.models import FeeInvoice, PaymentTransaction
 
 from .models import ParentProfile, User
 
@@ -411,3 +414,130 @@ class SchoolAdminStudentSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+# =============================================================
+# FEE INVOICES
+# =============================================================
+
+
+class SchoolAdminFeeInvoiceSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FeeInvoice
+        fields = (
+            "id",
+            "invoice_number",
+            "student",
+            "student_name",
+            "description",
+            "amount",
+            "due_date",
+            "status",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "invoice_number",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_student_name(self, obj):
+        return (
+            f"{obj.student.first_name} "
+            f"{obj.student.last_name}"
+        ).strip()
+
+    def validate_student(self, value):
+        return _check_same_tenant(
+            value, self.context["request"], "Student"
+        )
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Amount must be greater than zero."
+            )
+
+        return value
+
+    def validate_status(self, value):
+        # PAID is a server-driven outcome of a successful payment
+        # (see payments/services.py::mark_payment_success). Admins
+        # may cancel or reopen an invoice, but must never be able
+        # to forge a paid status by hand.
+        if value == FeeInvoice.Status.PAID:
+            raise serializers.ValidationError(
+                "Invoice status cannot be set to PAID manually. "
+                "It is set automatically when a payment succeeds."
+            )
+
+        return value
+
+    def create(self, validated_data):
+        request = self.context["request"]
+
+        invoice = FeeInvoice(
+            tenant=request.user.tenant,
+            invoice_number=(
+                f"INV{uuid.uuid4().hex[:12].upper()}"
+            ),
+            **validated_data,
+        )
+        invoice.full_clean()
+        invoice.save()
+
+        return invoice
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.full_clean()
+        instance.save()
+
+        return instance
+
+
+# =============================================================
+# PAYMENTS (READ-ONLY)
+# =============================================================
+
+
+class SchoolAdminPaymentTransactionSerializer(
+    serializers.ModelSerializer
+):
+    invoice_number = serializers.CharField(
+        source="invoice.invoice_number", read_only=True
+    )
+    parent_username = serializers.CharField(
+        source="parent.username", read_only=True
+    )
+    student_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PaymentTransaction
+        fields = (
+            "id",
+            "transaction_id",
+            "invoice_number",
+            "student_name",
+            "parent_username",
+            "gateway",
+            "amount",
+            "status",
+            "gateway_reference",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_student_name(self, obj):
+        student = obj.invoice.student
+
+        return (
+            f"{student.first_name} "
+            f"{student.last_name}"
+        ).strip()
