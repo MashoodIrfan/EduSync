@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-edusync_db}
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+      EDUSYNC_APP_USER: ${POSTGRES_APP_USER:-edusync_app}
+      EDUSYNC_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-edusync_app_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-init-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d ${POSTGRES_DB:-edusync_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-change-me-for-any-real-deployment}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      POSTGRES_DB: ${POSTGRES_DB:-edusync_db}
+      POSTGRES_USER: ${POSTGRES_APP_USER:-edusync_app}
+      POSTGRES_PASSWORD: ${POSTGRES_APP_PASSWORD:-edusync_app_password}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      JAZZCASH_MERCHANT_ID: ${JAZZCASH_MERCHANT_ID:-}
+      JAZZCASH_PASSWORD: ${JAZZCASH_PASSWORD:-}
+      JAZZCASH_SHARED_SECRET: ${JAZZCASH_SHARED_SECRET:-}
+      JAZZCASH_PAYMENT_URL: ${JAZZCASH_PAYMENT_URL:-}
+      JAZZCASH_RETURN_URL: ${JAZZCASH_RETURN_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
