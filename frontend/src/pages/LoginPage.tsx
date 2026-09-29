@@ -1,4 +1,4 @@
-import { CalendarCheck, Lock, ShieldCheck, User, Wallet } from "lucide-react"
+import { CalendarCheck, CheckCircle2, GraduationCap, Lock, ShieldCheck, TrendingUp, User, Wallet } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 
@@ -59,27 +59,72 @@ export function LoginPage() {
           }}
         />
 
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            <Logo size={28} />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+              <Logo size={28} />
+            </div>
+            <span className="text-lg font-semibold tracking-tight">EduSync</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight">EduSync</span>
+
+          <span className="-rotate-3 rounded-full bg-white/15 px-3 py-1 text-[11px] font-medium tracking-wide text-white backdrop-blur">
+            ✦ Built for real schools
+          </span>
+        </div>
+
+        <div className="relative flex flex-1 items-center justify-center py-8">
+          <div className="relative h-64 w-full max-w-sm">
+            <div
+              className="pointer-events-none absolute inset-0 rounded-full bg-white/10 blur-3xl"
+              aria-hidden="true"
+            />
+
+            <div className="absolute left-1/2 top-0 w-48 -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-gray-900 shadow-xl backdrop-blur">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <TrendingUp size={16} />
+                </span>
+                <span className="text-xs font-medium text-gray-500">Attendance Rate</span>
+              </div>
+              <p className="text-2xl font-semibold">96%</p>
+            </div>
+
+            <div className="absolute bottom-4 left-0 w-44 -rotate-6 rounded-2xl bg-white/95 p-4 text-gray-900 shadow-xl backdrop-blur">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <CheckCircle2 size={16} />
+                </span>
+                <span className="text-xs font-medium text-gray-500">Fees Collected</span>
+              </div>
+              <p className="text-2xl font-semibold">Rs. 1.2M</p>
+            </div>
+
+            <div className="absolute bottom-10 right-0 w-40 rotate-6 rounded-2xl bg-white/95 p-4 text-gray-900 shadow-xl backdrop-blur">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <GraduationCap size={16} />
+                </span>
+                <span className="text-xs font-medium text-gray-500">Schools Onboard</span>
+              </div>
+              <p className="text-2xl font-semibold">12</p>
+            </div>
+          </div>
         </div>
 
         <div className="relative max-w-md">
           <h1 className="mb-4 text-3xl font-semibold leading-tight tracking-tight">
             School operations, run from one place.
           </h1>
-          <p className="mb-10 text-indigo-100">
+          <p className="mb-8 text-indigo-100">
             Attendance, remarks, fees, and payments — one platform for admins, teachers, and
             parents, with every school's data kept strictly separate.
           </p>
 
-          <ul className="space-y-4">
+          <ul className="flex flex-wrap gap-x-6 gap-y-3">
             {FEATURES.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-start gap-3 text-sm text-indigo-50">
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
-                  <Icon size={15} strokeWidth={2.25} />
+              <li key={text} className="flex items-center gap-2 text-xs text-indigo-50">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <Icon size={13} strokeWidth={2.25} />
                 </span>
                 {text}
               </li>
@@ -87,7 +132,7 @@ export function LoginPage() {
           </ul>
         </div>
 
-        <p className="relative text-xs text-indigo-200">© {new Date().getFullYear()} EduSync</p>
+        <p className="relative mt-8 text-xs text-indigo-200">© {new Date().getFullYear()} EduSync</p>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">

@@ -2,6 +2,7 @@ import {
   BookOpen,
   ClipboardList,
   CreditCard,
+  LayoutDashboard,
   Layers,
   Receipt,
   Settings,
@@ -13,7 +14,8 @@ import {
 import { PortalLayout } from "../../components/PortalLayout"
 
 const NAV_ITEMS = [
-  { to: "/school-admin", label: "Classes", end: true, icon: Layers },
+  { to: "/school-admin", label: "Dashboard", end: true, icon: LayoutDashboard },
+  { to: "/school-admin/classes", label: "Classes", icon: Layers },
   { to: "/school-admin/subjects", label: "Subjects", icon: BookOpen },
   { to: "/school-admin/students", label: "Students", icon: Users },
   { to: "/school-admin/teachers", label: "Teachers", icon: UserCog },

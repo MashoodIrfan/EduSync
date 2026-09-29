@@ -15,6 +15,7 @@ import { ParentOverview } from "./pages/parent/ParentOverview"
 import { ParentPayments } from "./pages/parent/ParentPayments"
 import { ParentRemarks } from "./pages/parent/ParentRemarks"
 import { SchoolAdminClasses } from "./pages/school-admin/SchoolAdminClasses"
+import { SchoolAdminDashboard } from "./pages/school-admin/SchoolAdminDashboard"
 import { SchoolAdminFeeInvoices } from "./pages/school-admin/SchoolAdminFeeInvoices"
 import { SchoolAdminLayout } from "./pages/school-admin/SchoolAdminLayout"
 import { SchoolAdminParents } from "./pages/school-admin/SchoolAdminParents"
@@ -75,7 +76,8 @@ function AppRoutes() {
 
       <Route element={<ProtectedRoute allowedRoles={["SCHOOL_ADMIN"]} />}>
         <Route path="/school-admin" element={<SchoolAdminLayout />}>
-          <Route index element={<SchoolAdminClasses />} />
+          <Route index element={<SchoolAdminDashboard />} />
+          <Route path="classes" element={<SchoolAdminClasses />} />
           <Route path="subjects" element={<SchoolAdminSubjects />} />
           <Route path="students" element={<SchoolAdminStudents />} />
           <Route path="teachers" element={<SchoolAdminTeachers />} />
