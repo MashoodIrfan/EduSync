@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import type { PlatformAdminSchoolAdminInfo, PlatformAdminTenantInfo } from "../types"
+import type { AuditLogInfo, PlatformAdminSchoolAdminInfo, PlatformAdminTenantInfo } from "../types"
 import { apiClient } from "./client"
 
 export function useTenants() {
@@ -99,5 +99,17 @@ export function useDeleteSchoolAdmin(tenantId: number) {
       (await apiClient.delete(`/platform-admin/tenants/${tenantId}/school-admins/${id}/`)).data,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["platform", "tenants", tenantId, "school-admins"] }),
+  })
+}
+
+export function useAuditLog(tenantId?: number) {
+  return useQuery({
+    queryKey: ["platform", "audit-log", tenantId],
+    queryFn: async () =>
+      (
+        await apiClient.get<AuditLogInfo[]>("/platform-admin/audit-log/", {
+          params: tenantId ? { tenant: tenantId } : undefined,
+        })
+      ).data,
   })
 }

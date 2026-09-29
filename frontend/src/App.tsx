@@ -14,6 +14,7 @@ import { ParentLayout } from "./pages/parent/ParentLayout"
 import { ParentOverview } from "./pages/parent/ParentOverview"
 import { ParentPayments } from "./pages/parent/ParentPayments"
 import { ParentRemarks } from "./pages/parent/ParentRemarks"
+import { SchoolAdminActivityLog } from "./pages/school-admin/SchoolAdminActivityLog"
 import { SchoolAdminClasses } from "./pages/school-admin/SchoolAdminClasses"
 import { SchoolAdminDashboard } from "./pages/school-admin/SchoolAdminDashboard"
 import { SchoolAdminFeeInvoices } from "./pages/school-admin/SchoolAdminFeeInvoices"
@@ -87,6 +88,7 @@ function AppRoutes() {
           <Route path="parents" element={<SchoolAdminParents />} />
           <Route path="fee-invoices" element={<SchoolAdminFeeInvoices />} />
           <Route path="payments" element={<SchoolAdminPayments />} />
+          <Route path="activity-log" element={<SchoolAdminActivityLog />} />
           <Route path="school" element={<SchoolAdminSchoolSetup />} />
         </Route>
       </Route>

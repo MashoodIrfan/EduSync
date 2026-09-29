@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import type {
+  AuditLogInfo,
   SchoolAdminClassInfo,
   SchoolAdminFeeInvoiceInfo,
   SchoolAdminParentInfo,
@@ -200,6 +201,12 @@ export function useCancelFeeInvoice() {
 
 export function usePayments() {
   return useList<SchoolAdminPaymentInfo>("payments", "/school-admin/payments/")
+}
+
+// ---- Audit log (read-only) ----
+
+export function useAuditLog() {
+  return useList<AuditLogInfo>("audit-log", "/school-admin/audit-log/")
 }
 
 // ---- School setup ----

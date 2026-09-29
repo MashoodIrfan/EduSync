@@ -198,6 +198,17 @@ export interface SchoolInfo {
   updated_at: string
 }
 
+export interface AuditLogInfo {
+  id: number
+  school_name: string
+  actor_label: string
+  action: string
+  model_name: string
+  object_repr: string
+  changes: Record<string, unknown>
+  created_at: string
+}
+
 export interface PlatformAdminTenantInfo {
   id: number
   name: string

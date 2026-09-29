@@ -1,4 +1,5 @@
 import {
+  Activity,
   BookOpen,
   ClipboardList,
   CreditCard,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: "/school-admin/parents", label: "Parents", icon: UserRound },
   { to: "/school-admin/fee-invoices", label: "Fee Invoices", icon: Receipt },
   { to: "/school-admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/school-admin/activity-log", label: "Activity Log", icon: Activity },
   { to: "/school-admin/school", label: "School Setup", icon: Settings },
 ]
 

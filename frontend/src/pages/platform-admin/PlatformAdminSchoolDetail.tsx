@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react"
 import { Link, useParams } from "react-router-dom"
 
 import {
+  useAuditLog,
   useCreateSchoolAdmin,
   useDeleteSchoolAdmin,
   useSchoolAdmins,
@@ -29,6 +30,7 @@ export function PlatformAdminSchoolDetail() {
 
   const { data: tenant, isLoading: tenantLoading } = useTenant(tenantIdNum)
   const { data: admins, isLoading: adminsLoading } = useSchoolAdmins(tenantIdNum)
+  const { data: auditLog } = useAuditLog(tenantIdNum)
   const toggleActive = useToggleSchoolAdminActive(tenantIdNum)
   const deleteAdmin = useDeleteSchoolAdmin(tenantIdNum)
   const [showForm, setShowForm] = useState(false)
@@ -115,6 +117,37 @@ export function PlatformAdminSchoolDetail() {
             No school admins yet — add one to give this school access.
           </EmptyState>
         )}
+      </Card>
+
+      <h2 className="mb-4 mt-8 text-base font-semibold text-gray-900">Recent Activity</h2>
+      <Card className="overflow-x-auto p-0">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500">
+            <tr>
+              <th className="px-4 py-2">When</th>
+              <th className="px-4 py-2">Who</th>
+              <th className="px-4 py-2">Action</th>
+              <th className="px-4 py-2">Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auditLog?.map((entry) => (
+              <tr key={entry.id} className="border-b border-gray-100">
+                <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-400">
+                  {new Date(entry.created_at).toLocaleString()}
+                </td>
+                <td className="px-4 py-2">{entry.actor_label || "system"}</td>
+                <td className="px-4 py-2">
+                  <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                    {entry.action.replaceAll("_", " ")}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-gray-600">{entry.object_repr}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {auditLog?.length === 0 && <EmptyState>No activity recorded for this school yet.</EmptyState>}
       </Card>
 
       {showForm && <CreateSchoolAdminModal tenantId={tenantIdNum} onClose={() => setShowForm(false)} />}
