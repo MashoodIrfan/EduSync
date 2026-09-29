@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom"
 
 import { useAuth } from "../../auth/AuthContext"
 import { useTeacherAssignments, useTeacherClassStudents } from "../../api/teacher"
-import { Button, Card, PageTitle, Select, Spinner } from "../../components/ui"
+import { Button, Card, ErrorBanner, PageTitle, Select, Spinner } from "../../components/ui"
 import { offlineDB, rosterCacheKey, type QueuedAttendance } from "../../offline/db"
 import { useCachedRoster, useOnlineStatus, useSyncQueue } from "../../offline/hooks"
 import { enqueueAttendance, trySyncAll } from "../../offline/syncEngine"
@@ -40,6 +40,7 @@ export function TeacherMarkAttendance() {
   const [date, setDate] = useState(todayIso())
   const [statusByStudent, setStatusByStudent] = useState<Record<number, string>>({})
   const [savingStudentId, setSavingStudentId] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState("")
 
   const assignment = assignments?.find(
     (item) => item.class_id === classIdNum && item.subject_id === subjectIdNum,
@@ -97,24 +98,30 @@ export function TeacherMarkAttendance() {
     if (!teacherId || !assignment) return
 
     setSavingStudentId(studentId)
+    setSaveError("")
 
-    await enqueueAttendance({
-      teacherId,
-      student: studentId,
-      studentLabel,
-      classRoom: classIdNum,
-      subject: subjectIdNum,
-      classLabel: assignment.class_name,
-      subjectLabel: assignment.subject_name,
-      date,
-      status: (statusByStudent[studentId] ?? "PRESENT") as "PRESENT" | "ABSENT" | "LATE",
-    })
+    try {
+      await enqueueAttendance({
+        teacherId,
+        student: studentId,
+        studentLabel,
+        classRoom: classIdNum,
+        subject: subjectIdNum,
+        classLabel: assignment.class_name,
+        subjectLabel: assignment.subject_name,
+        date,
+        status: (statusByStudent[studentId] ?? "PRESENT") as "PRESENT" | "ABSENT" | "LATE",
+      })
 
-    if (navigator.onLine) {
-      await trySyncAll(teacherId)
+      if (navigator.onLine) {
+        await trySyncAll(teacherId)
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      setSaveError(`Couldn't save locally: ${detail}`)
+    } finally {
+      setSavingStudentId(null)
     }
-
-    setSavingStudentId(null)
   }
 
   return (
@@ -137,6 +144,8 @@ export function TeacherMarkAttendance() {
           Showing a cached roster from {new Date(cachedRoster!.cachedAt).toLocaleString()} (offline).
         </div>
       )}
+
+      <ErrorBanner message={saveError} />
 
       <Card className="mb-4 max-w-xs">
         <label className="block text-xs font-medium text-gray-600">Date</label>
