@@ -84,6 +84,6 @@ Defaults are meant for local/demo use only — set real values (`SECRET_KEY`, `P
 
 ## Roadmap
 
-Implemented: multi-tenant models, JWT auth, Parent/Teacher/School Admin/Platform Admin APIs and dashboards, JazzCash callback verification (sandbox credentials pending), PostgreSQL RLS, offline-first attendance PWA, privileged-action audit log, Docker.
+Implemented: multi-tenant models, JWT auth, Parent/Teacher/School Admin/Platform Admin APIs and dashboards, JazzCash callback verification (sandbox credentials pending), PostgreSQL RLS, offline-first attendance PWA, privileged-action audit log, Docker, GitHub Actions CI.
 
-Ahead: payment reconciliation for stuck `PENDING` transactions (needs live JazzCash sandbox access + Celery), Redis, Celery, GitHub Actions CI, frontend automated tests, deployment.
+Ahead: payment reconciliation for stuck `PENDING` transactions (needs live JazzCash sandbox access + Celery), Redis, Celery, frontend automated tests, deployment.
