@@ -4,6 +4,7 @@ from django.utils.text import slugify
 
 from rest_framework import serializers
 
+from audit.services import log_action_for_request
 from tenants.models import Tenant
 
 from .models import User
@@ -38,6 +39,8 @@ class PlatformAdminTenantSerializer(serializers.ModelSerializer):
         tenant = Tenant(**validated_data)
         tenant.full_clean()
         tenant.save()
+
+        log_action_for_request(self.context["request"], "created_tenant", tenant, tenant=tenant)
 
         return tenant
 
@@ -114,6 +117,11 @@ class PlatformAdminSchoolAdminSerializer(serializers.ModelSerializer):
         school_admin.set_password(password)
         school_admin.full_clean(exclude=["password"])
         school_admin.save()
+
+        # Never log the temporary password itself.
+        log_action_for_request(
+            self.context["request"], "created_school_admin", school_admin, tenant=tenant
+        )
 
         school_admin._temporary_password = password
 

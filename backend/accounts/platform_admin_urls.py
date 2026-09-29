@@ -4,6 +4,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .platform_admin_views import (
+    PlatformAdminAuditLogViewSet,
     PlatformAdminSchoolAdminViewSet,
     PlatformAdminTenantViewSet,
 )
@@ -14,6 +15,11 @@ router.register(
     "tenants",
     PlatformAdminTenantViewSet,
     basename="platform-admin-tenant",
+)
+router.register(
+    "audit-log",
+    PlatformAdminAuditLogViewSet,
+    basename="platform-admin-audit-log",
 )
 
 

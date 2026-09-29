@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from audit.services import log_action
+
 from .models import FeeInvoice, PaymentTransaction
 
 
@@ -83,6 +85,15 @@ def mark_payment_success(
 
     update_invoice_status(invoice)
 
+    # actor=None: this is triggered by the gateway's server-to-server
+    # callback, not a logged-in user.
+    log_action(
+        "payment_success",
+        payment,
+        tenant=payment.tenant,
+        changes={"amount": str(payment.amount), "gateway_reference": payment.gateway_reference},
+    )
+
     return payment
 
 
@@ -113,6 +124,8 @@ def mark_payment_pending(
         ]
     )
 
+    log_action("payment_pending", payment, tenant=payment.tenant)
+
     return payment
 
 
@@ -141,6 +154,13 @@ def mark_payment_failed(
             "gateway_reference",
             "updated_at",
         ]
+    )
+
+    log_action(
+        "payment_failed",
+        payment,
+        tenant=payment.tenant,
+        changes={"gateway_reference": payment.gateway_reference},
     )
 
     return payment

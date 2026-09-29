@@ -3,6 +3,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
+from audit.models import AuditLog
+from audit.serializers import AuditLogSerializer
 from tenants.models import Tenant
 
 from .models import User
@@ -53,3 +55,28 @@ class PlatformAdminSchoolAdminViewSet(viewsets.ModelViewSet):
         context["tenant"] = self.get_tenant()
 
         return context
+
+
+class PlatformAdminAuditLogViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    Platform-wide activity — optionally scoped to one school via
+    ?tenant=<id>. Platform Admin requests bypass RLS entirely (see
+    TenantContextMiddleware), so this legitimately sees every tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    serializer_class = AuditLogSerializer
+
+    def get_queryset(self):
+        queryset = AuditLog.objects.select_related("tenant").order_by("-created_at")
+
+        tenant_id = self.request.query_params.get("tenant")
+
+        if tenant_id:
+            queryset = queryset.filter(tenant_id=tenant_id)
+
+        return queryset[:200]
