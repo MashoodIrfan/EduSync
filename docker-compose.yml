@@ -9,7 +9,7 @@ services:
       EDUSYNC_APP_USER: ${POSTGRES_APP_USER:-edusync_app}
       EDUSYNC_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-edusync_app_password}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-init-app-role.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-postgres} -d ${POSTGRES_DB:-edusync_db}"]
