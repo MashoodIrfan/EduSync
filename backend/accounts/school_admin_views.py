@@ -7,6 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from academics.models import Class, Student, Subject, TeacherAssignment
+from audit.models import AuditLog
+from audit.serializers import AuditLogSerializer
+from audit.services import log_action_for_request
 from payments.models import FeeInvoice, PaymentTransaction
 
 from .models import ParentProfile, User
@@ -112,6 +115,10 @@ class SchoolAdminTeacherAssignmentViewSet(
             )
         )
 
+    def perform_destroy(self, instance):
+        log_action_for_request(self.request, "deleted_teacher_assignment", instance)
+        instance.delete()
+
 
 class SchoolAdminParentViewSet(
     mixins.ListModelMixin,
@@ -137,6 +144,7 @@ class SchoolAdminParentViewSet(
         return SchoolAdminParentListSerializer
 
     def perform_destroy(self, instance):
+        log_action_for_request(self.request, "deleted_parent", instance)
         # Deleting the login account cascades to the ParentProfile.
         instance.user.delete()
 
@@ -150,6 +158,9 @@ class SchoolAdminParentViewSet(
 
         profile.must_change_password = True
         profile.save(update_fields=["must_change_password"])
+
+        # Never log the new temporary password itself.
+        log_action_for_request(request, "reset_parent_password", profile)
 
         return Response(
             {
@@ -205,6 +216,20 @@ class SchoolAdminPaymentTransactionViewSet(
             queryset = queryset.filter(status=payment_status)
 
         return queryset.order_by("-created_at")
+
+
+class SchoolAdminAuditLogViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    serializer_class = AuditLogSerializer
+
+    def get_queryset(self):
+        return AuditLog.objects.filter(
+            tenant=self.request.user.tenant
+        ).order_by("-created_at")[:200]
 
 
 class SchoolAdminTenantView(RetrieveUpdateAPIView):

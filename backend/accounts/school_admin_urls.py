@@ -4,6 +4,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .school_admin_views import (
+    SchoolAdminAuditLogViewSet,
     SchoolAdminClassViewSet,
     SchoolAdminFeeInvoiceViewSet,
     SchoolAdminParentViewSet,
@@ -36,6 +37,11 @@ router.register(
     "payments",
     SchoolAdminPaymentTransactionViewSet,
     basename="school-admin-payment",
+)
+router.register(
+    "audit-log",
+    SchoolAdminAuditLogViewSet,
+    basename="school-admin-audit-log",
 )
 
 

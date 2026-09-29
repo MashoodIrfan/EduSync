@@ -7,6 +7,7 @@ from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 from academics.models import Class, Student, Subject, TeacherAssignment
+from audit.services import log_action_for_request
 from payments.models import FeeInvoice, PaymentTransaction
 from tenants.models import Tenant
 
@@ -152,10 +153,14 @@ class SchoolAdminTeacherSerializer(serializers.ModelSerializer):
         teacher.full_clean(exclude=["password"])
         teacher.save()
 
+        log_action_for_request(request, "created_teacher", teacher)
+
         return teacher
 
     def update(self, instance, validated_data):
+        request = self.context["request"]
         password = validated_data.pop("password", None)
+        was_active = instance.is_active
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -165,6 +170,12 @@ class SchoolAdminTeacherSerializer(serializers.ModelSerializer):
 
         instance.full_clean(exclude=["password"])
         instance.save()
+
+        if "is_active" in validated_data and instance.is_active != was_active:
+            action = "activated_teacher" if instance.is_active else "deactivated_teacher"
+            log_action_for_request(request, action, instance)
+        elif validated_data:
+            log_action_for_request(request, "updated_teacher", instance)
 
         return instance
 
@@ -232,6 +243,17 @@ class SchoolAdminTeacherAssignmentSerializer(
         )
         assignment.full_clean()
         assignment.save()
+
+        log_action_for_request(
+            request,
+            "created_teacher_assignment",
+            assignment,
+            changes={
+                "teacher": assignment.teacher.username,
+                "class_room": str(assignment.class_room),
+                "subject": assignment.subject.name,
+            },
+        )
 
         return assignment
 
@@ -343,6 +365,14 @@ class SchoolAdminParentCreateSerializer(serializers.Serializer):
             )
             profile.full_clean()
             profile.save()
+
+        # Never log the temporary password itself.
+        log_action_for_request(
+            request,
+            "created_parent",
+            profile,
+            changes={"student": student.student_id},
+        )
 
         profile._temporary_password = password
 
@@ -491,14 +521,30 @@ class SchoolAdminFeeInvoiceSerializer(serializers.ModelSerializer):
         invoice.full_clean()
         invoice.save()
 
+        log_action_for_request(
+            request,
+            "created_fee_invoice",
+            invoice,
+            changes={"amount": str(invoice.amount), "due_date": str(invoice.due_date)},
+        )
+
         return invoice
 
     def update(self, instance, validated_data):
+        request = self.context["request"]
+        was_status = instance.status
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.full_clean()
         instance.save()
+
+        if "status" in validated_data and instance.status != was_status:
+            action = "cancelled_fee_invoice" if instance.status == FeeInvoice.Status.CANCELLED else "updated_fee_invoice_status"
+            log_action_for_request(
+                request, action, instance, changes={"from": was_status, "to": instance.status}
+            )
 
         return instance
 
