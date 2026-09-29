@@ -113,6 +113,10 @@ jobs:
       - name: Build and start the full stack
         run: docker compose up --build -d
 
+      - name: Show db logs if it failed to start
+        if: failure()
+        run: docker compose logs db
+
       - name: Wait for backend to become healthy
         run: |
           for i in $(seq 1 30); do
