@@ -1,10 +1,13 @@
-import { ArrowRight, BookOpen, CalendarCheck, ClipboardList, Layers } from "lucide-react"
+import { ArrowRight, BookOpen, CalendarCheck, ClipboardList, CloudOff, Layers } from "lucide-react"
+import { useLiveQuery } from "dexie-react-hooks"
+import { useEffect } from "react"
 import { Link } from "react-router-dom"
 
 import { useAuth } from "../../auth/AuthContext"
 import { useTeacherAssignments, useTeacherAttendance } from "../../api/teacher"
 import { Badge, Card, EmptyState, Spinner } from "../../components/ui"
 import { DashboardHeader, StatCard } from "../../components/widgets"
+import { offlineDB } from "../../offline/db"
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -12,10 +15,31 @@ function todayIso() {
 
 export function TeacherAssignments() {
   const { user } = useAuth()
-  const { data: assignments, isLoading } = useTeacherAssignments()
+  const teacherId = user?.id
+
+  const { data: networkAssignments, isLoading, isError } = useTeacherAssignments()
   const { data: attendance, isLoading: attendanceLoading } = useTeacherAttendance()
 
-  if (isLoading || attendanceLoading) return <Spinner />
+  const cachedAssignments = useLiveQuery(async () => {
+    if (teacherId === undefined) return undefined
+
+    return offlineDB.assignmentsCache.get(teacherId)
+  }, [teacherId])
+
+  useEffect(() => {
+    if (!teacherId || !networkAssignments) return
+
+    offlineDB.assignmentsCache.put({
+      teacherId,
+      assignments: networkAssignments,
+      cachedAt: new Date().toISOString(),
+    })
+  }, [teacherId, networkAssignments])
+
+  const usingCache = isError && !!cachedAssignments
+  const assignments = usingCache ? cachedAssignments?.assignments : networkAssignments
+
+  if (isLoading) return <Spinner />
 
   const subjectCount = new Set(assignments?.map((item) => item.subject_name)).size
   const markedToday = attendance?.filter((record) => record.date === todayIso()).length ?? 0
@@ -28,10 +52,22 @@ export function TeacherAssignments() {
         subtitle="Here's your teaching overview for today."
       />
 
+      {usingCache && (
+        <div className="mb-5 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm text-blue-800">
+          <CloudOff size={16} />
+          You're offline — showing classes cached from {new Date(cachedAssignments!.cachedAt).toLocaleString()}.
+        </div>
+      )}
+
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard icon={Layers} label="Classes Assigned" value={assignments?.length ?? 0} tone="indigo" />
         <StatCard icon={BookOpen} label="Subjects Taught" value={subjectCount} tone="blue" />
-        <StatCard icon={CalendarCheck} label="Marked Today" value={markedToday} tone="emerald" />
+        <StatCard
+          icon={CalendarCheck}
+          label="Marked Today"
+          value={attendanceLoading ? "…" : markedToday}
+          tone="emerald"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
