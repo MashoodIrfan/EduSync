@@ -29,6 +29,7 @@ import { TeacherAssignments } from "./pages/teacher/TeacherAssignments"
 import { TeacherAttendanceHistory } from "./pages/teacher/TeacherAttendanceHistory"
 import { TeacherLayout } from "./pages/teacher/TeacherLayout"
 import { TeacherMarkAttendance } from "./pages/teacher/TeacherMarkAttendance"
+import { TeacherSyncStatus } from "./pages/teacher/TeacherSyncStatus"
 
 const queryClient = new QueryClient()
 
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="/teacher" element={<TeacherLayout />}>
           <Route index element={<TeacherAssignments />} />
           <Route path="attendance" element={<TeacherAttendanceHistory />} />
+          <Route path="sync" element={<TeacherSyncStatus />} />
         </Route>
         <Route path="/teacher/mark-attendance/:classId/:subjectId" element={<TeacherLayout />}>
           <Route index element={<TeacherMarkAttendance />} />

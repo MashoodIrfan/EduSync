@@ -10,12 +10,14 @@ interface NavItem {
   label: string
   icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
   end?: boolean
+  badge?: number
 }
 
 interface PortalLayoutProps {
   title: string
   navItems: NavItem[]
   banner?: ReactNode
+  statusBadge?: ReactNode
 }
 
 function initialsOf(name: string) {
@@ -27,7 +29,7 @@ function initialsOf(name: string) {
     .join("")
 }
 
-export function PortalLayout({ title, navItems, banner }: PortalLayoutProps) {
+export function PortalLayout({ title, navItems, banner, statusBadge }: PortalLayoutProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -49,6 +51,8 @@ export function PortalLayout({ title, navItems, banner }: PortalLayoutProps) {
             <p className="text-xs leading-tight text-gray-400">{title}</p>
           </div>
         </div>
+
+        {statusBadge && <div className="border-b border-gray-100 px-5 py-3">{statusBadge}</div>}
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
           {navItems.map((item) => {
@@ -73,7 +77,12 @@ export function PortalLayout({ title, navItems, banner }: PortalLayoutProps) {
                       strokeWidth={2}
                       className={isActive ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-600"}
                     />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {!!item.badge && (
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                        {item.badge}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>
