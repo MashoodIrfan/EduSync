@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'academics',
     'attendance',
     'payments',
+    'audit',
     'rest_framework',
 ]
 
