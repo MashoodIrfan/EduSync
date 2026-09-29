@@ -1,0 +1,4 @@
+# Shell scripts run inside Linux Docker containers — must keep LF
+# line endings or bash fails on the shebang line when checked out on
+# Windows with core.autocrlf enabled.
+*.sh text eol=lf
