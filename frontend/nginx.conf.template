@@ -27,7 +27,25 @@ server {
 
     location /api/ {
         proxy_pass ${BACKEND_ORIGIN}/api/;
-        proxy_set_header Host $host;
+
+        # Both of these matter only when BACKEND_ORIGIN is https://, i.e.
+        # when the backend is reached over the public internet rather
+        # than a private Docker network — they're harmless no-ops for a
+        # plain-http upstream, which is why a local/CI compose run can
+        # never catch their absence.
+        #
+        # proxy_ssl_server_name: nginx omits TLS SNI by default. Hosts
+        # that serve many apps behind shared IPs route by SNI, so without
+        # it the handshake fails and every proxied call becomes a 502.
+        proxy_ssl_server_name on;
+
+        # $proxy_host (the upstream's own hostname) rather than $host
+        # (this server's): the upstream edge routes on Host too, and it
+        # is what the backend's ALLOWED_HOSTS must then contain. The real
+        # client-facing host is still forwarded below.
+        proxy_set_header Host $proxy_host;
+
+        proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
