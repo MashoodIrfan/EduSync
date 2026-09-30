@@ -106,6 +106,10 @@ DATABASES = {
         'PASSWORD': env('POSTGRES_PASSWORD'),
         'HOST': env('POSTGRES_HOST'),
         'PORT': env('POSTGRES_PORT'),
+        # 'prefer' works unchanged against a local Postgres with no SSL
+        # configured at all; hosted providers (e.g. Neon) that require
+        # SSL set this to 'require' via POSTGRES_SSLMODE instead.
+        'OPTIONS': {'sslmode': env('POSTGRES_SSLMODE', default='prefer')},
     }
 }
 

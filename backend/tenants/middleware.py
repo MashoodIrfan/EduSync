@@ -7,11 +7,12 @@ from rest_framework_simplejwt.tokens import AccessToken
 # Endpoints that legitimately need to run before (or without) tenant
 # context: authentication itself is a global lookup by username, the
 # Stripe webhook authenticates itself via its own signature instead of
-# a JWT, and Django admin/static assets are handled via the superuser
-# check below.
+# a JWT, the health check touches no tenant data at all, and Django
+# admin/static assets are handled via the superuser check below.
 BYPASS_PATH_PREFIXES = (
     "/api/token/",
     "/api/payments/stripe/webhook/",
+    "/api/health/",
     "/admin/",
     "/static/",
 )
