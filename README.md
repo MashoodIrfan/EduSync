@@ -82,8 +82,12 @@ docker compose up --build
 
 Defaults are meant for local/demo use only — set real values (`SECRET_KEY`, `POSTGRES_*`, `DEBUG=False`, a real `ALLOWED_HOSTS`) in `.env` before deploying anywhere reachable from outside your machine. `docker/postgres-init.sh` is what actually creates the app's Postgres role on first boot — see it and `backend/tenants/migrations/0002_row_level_security.py` for why that role can never be a superuser.
 
+### Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) — Render (backend + frontend, both free) and Neon (Postgres, free, no expiry) via the `render.yaml` Blueprint. Neither requires a credit card.
+
 ## Roadmap
 
-Implemented: multi-tenant models, JWT auth, Parent/Teacher/School Admin/Platform Admin APIs and dashboards, Stripe Checkout + webhook verification (real API keys pending), PostgreSQL RLS, offline-first attendance PWA, privileged-action audit log, Docker, GitHub Actions CI, frontend automated tests (Vitest).
+Implemented: multi-tenant models, JWT auth, Parent/Teacher/School Admin/Platform Admin APIs and dashboards, Stripe Checkout + webhook verification (verified end-to-end against a real Stripe test-mode payment), PostgreSQL RLS, offline-first attendance PWA, privileged-action audit log, Docker, GitHub Actions CI, frontend automated tests (Vitest), deployment config (Render + Neon, see DEPLOYMENT.md).
 
-Ahead: payment reconciliation for stuck `PENDING` transactions (needs Redis + Celery), Redis, Celery, deployment.
+Ahead: actually going live on Render/Neon (account setup is a manual step for the project owner), payment reconciliation for stuck `PENDING` transactions (needs Redis + Celery), Redis, Celery.

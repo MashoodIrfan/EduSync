@@ -1,0 +1,57 @@
+# Render Blueprint — deploys both services in one go from
+# https://dashboard.render.com/blueprints (New + > Blueprint, point it
+# at this repo). Database is deliberately NOT defined here: Render's
+# free Postgres auto-deletes after 30 days, so this project uses a
+# separately-created Neon Postgres instead — see DEPLOYMENT.md.
+#
+# Service names below (edusync-backend / edusync-frontend) become the
+# *.onrender.com subdomains IF they're not already taken by someone
+# else on Render. If Render assigns different subdomains, update
+# ALLOWED_HOSTS, FRONTEND_URL, and BACKEND_ORIGIN below (and redeploy)
+# to match — see DEPLOYMENT.md for the exact steps.
+
+services:
+  - type: web
+    name: edusync-backend
+    env: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health/
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: edusync-backend.onrender.com,edusync-frontend.onrender.com
+      - key: FRONTEND_URL
+        value: https://edusync-frontend.onrender.com
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_SSLMODE
+        value: require
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+  - type: web
+    name: edusync-frontend
+    env: docker
+    plan: free
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    envVars:
+      - key: BACKEND_ORIGIN
+        value: https://edusync-backend.onrender.com
