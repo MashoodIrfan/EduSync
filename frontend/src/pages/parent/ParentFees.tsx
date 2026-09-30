@@ -1,30 +1,28 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { useInitiatePayment, useParentFees } from "../../api/parent"
 import { Badge, Button, Card, ErrorBanner, PageTitle, Spinner, extractErrorMessage } from "../../components/ui"
-
-function submitToGateway(paymentUrl: string, formFields: Record<string, string>) {
-  const form = document.createElement("form")
-  form.method = "POST"
-  form.action = paymentUrl
-
-  for (const [key, value] of Object.entries(formFields)) {
-    const input = document.createElement("input")
-    input.type = "hidden"
-    input.name = key
-    input.value = value
-    form.appendChild(input)
-  }
-
-  document.body.appendChild(form)
-  form.submit()
-}
 
 export function ParentFees() {
   const { data, isLoading } = useParentFees()
   const initiatePayment = useInitiatePayment()
   const [error, setError] = useState("")
   const [payingId, setPayingId] = useState<number | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const paymentResult = searchParams.get("payment")
+
+  useEffect(() => {
+    if (!paymentResult) return
+
+    const next = new URLSearchParams(searchParams)
+    next.delete("payment")
+    setSearchParams(next, { replace: true })
+    // Only run once per redirect back from Stripe, not on every
+    // searchParams/setSearchParams identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentResult])
 
   if (isLoading) return <Spinner />
 
@@ -34,10 +32,9 @@ export function ParentFees() {
 
     try {
       const result = await initiatePayment.mutateAsync(invoiceId)
-      submitToGateway(result.payment_url, result.form_fields)
+      window.location.href = result.checkout_url
     } catch (err) {
       setError(extractErrorMessage(err))
-    } finally {
       setPayingId(null)
     }
   }
@@ -45,6 +42,16 @@ export function ParentFees() {
   return (
     <div>
       <PageTitle>Fees</PageTitle>
+      {paymentResult === "success" && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          Payment completed. It may take a few seconds to reflect below.
+        </div>
+      )}
+      {paymentResult === "cancelled" && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Payment was cancelled — no charge was made.
+        </div>
+      )}
       <ErrorBanner message={error} />
       <Card className="overflow-x-auto p-0">
         <table className="w-full text-left text-sm">
