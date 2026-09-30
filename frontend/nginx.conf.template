@@ -1,3 +1,12 @@
+# This is a template, not a plain nginx config — nginx's own startup
+# scripts run envsubst over any *.template file under
+# /etc/nginx/templates/, substituting ${BACKEND_ORIGIN} with the real
+# value at container start (see frontend/Dockerfile). Locally that's
+# Docker Compose's internal DNS name for the backend service; on
+# Render (no shared internal network between services) it's the
+# backend service's own public HTTPS URL instead. Keeping the browser
+# talking only to the frontend's own origin, with nginx forwarding
+# /api/ server-side, means no CORS configuration is ever needed.
 server {
     listen 80;
     server_name _;
@@ -17,7 +26,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://backend:8000/api/;
+        proxy_pass ${BACKEND_ORIGIN}/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
