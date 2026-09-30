@@ -2,12 +2,13 @@
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import transaction
 
+import stripe
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .gateways.jazzcash import JazzCashGateway
+from .gateways.stripe_gateway import StripeGateway
 from .models import PaymentTransaction
 from .services import (
     mark_payment_failed,
@@ -15,22 +16,17 @@ from .services import (
 )
 
 
-class JazzCashReturnView(APIView):
+class StripeWebhookView(APIView):
     """
-    Receives the payment result POST sent by JazzCash.
+    Receives Stripe's server-to-server webhook events.
 
-    JazzCash calls this endpoint after processing the
-    payment. The endpoint does not use JWT because the
-    caller is the payment gateway.
-
-    Security checks:
-        1. Transaction exists.
-        2. Gateway is JazzCash.
-        3. Merchant ID matches our configuration.
-        4. Secure hash is valid.
-        5. Returned amount matches our transaction.
-        6. Invoice reference matches.
-        7. Response code determines success/failure.
+    Unlike a browser redirect (the old JazzCash return flow), nothing
+    here ever comes from the customer's browser — Stripe calls this
+    endpoint directly, so a failed signature check means the request
+    isn't from Stripe at all. There is no legitimate-but-tampered case
+    to fall back to, so an invalid signature is rejected outright
+    without touching any transaction (unlike the old gateway, which had
+    a VERIFICATION_REQUIRED fallback for exactly that in-between case).
 
     The actual payment state transition is delegated to
     payments.services so that idempotency remains centralized.
@@ -41,404 +37,108 @@ class JazzCashReturnView(APIView):
     http_method_names = ["post"]
 
     def post(self, request, *args, **kwargs):
-        # Convert incoming values into normal strings.
-        payload = {
-            str(key): (
-                "" if value is None else str(value)
-            )
-            for key, value in request.data.items()
-        }
-
-        transaction_id = payload.get(
-            "pp_TxnRefNo",
-            "",
-        ).strip()
-
-        if not transaction_id:
-            return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        "JazzCash transaction reference "
-                        "was not provided."
-                    ),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            payment = (
-                PaymentTransaction.objects
-                .select_related(
-                    "invoice",
-                    "parent",
-                )
-                .get(
-                    transaction_id=transaction_id,
-                )
-            )
-        except PaymentTransaction.DoesNotExist:
-            return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        "Payment transaction was not found."
-                    ),
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # This callback must belong to a JazzCash transaction.
-        if (
-            payment.gateway
-            != PaymentTransaction.Gateway.JAZZCASH
-        ):
-            return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        "Invalid payment gateway."
-                    ),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        gateway = JazzCashGateway()
+        gateway = StripeGateway()
 
         try:
             gateway.validate_configuration()
         except ImproperlyConfigured as exc:
             return Response(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                },
+                {"status": "error", "message": str(exc)},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        # -------------------------------------------------
-        # 1. Verify Merchant ID
-        # -------------------------------------------------
+        signature_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
 
-        returned_merchant_id = payload.get(
-            "pp_MerchantID",
-            "",
-        ).strip()
-
-        if returned_merchant_id != gateway.merchant_id:
-            self._mark_verification_required(
-                transaction_id=payment.transaction_id,
-                payload=payload,
-                reason="Invalid merchant ID.",
-            )
-
+        try:
+            event = gateway.verify_webhook_event(request.body, signature_header)
+        except (stripe.error.SignatureVerificationError, ValueError):
             return Response(
-                {
-                    "status": "error",
-                    "message": "Invalid merchant ID.",
-                },
+                {"status": "error", "message": "Invalid webhook signature."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # -------------------------------------------------
-        # 2. Verify Secure Hash
-        # -------------------------------------------------
+        event_type = event["type"]
+        event_object = event["data"]["object"]
 
-        if not gateway.verify_response_hash(payload):
-            self._mark_verification_required(
-                transaction_id=payment.transaction_id,
-                payload=payload,
-                reason="Invalid secure hash.",
+        if event_type == "checkout.session.completed":
+            return self._handle_checkout_completed(gateway, event_object)
+
+        if event_type == "checkout.session.expired":
+            return self._handle_checkout_expired(event_object)
+
+        # Every other event type is acknowledged but ignored — Stripe
+        # sends many event categories we don't act on.
+        return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+    def _handle_checkout_completed(self, gateway, session):
+        transaction_id = getattr(session, "client_reference_id", "") or ""
+
+        try:
+            payment = (
+                PaymentTransaction.objects
+                .select_related("invoice")
+                .get(transaction_id=transaction_id)
+            )
+        except PaymentTransaction.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "Payment transaction was not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
+        if payment.gateway != PaymentTransaction.Gateway.STRIPE:
             return Response(
-                {
-                    "status": "error",
-                    "message": "Invalid secure hash.",
-                },
+                {"status": "error", "message": "Invalid payment gateway."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # -------------------------------------------------
-        # 3. Verify returned amount
-        # -------------------------------------------------
-
-        returned_amount = payload.get(
-            "pp_Amount",
-            "",
-        ).strip()
-
-        expected_amount = gateway.format_amount(
-            payment.amount
-        )
+        expected_amount = gateway.format_amount(payment.amount)
+        returned_amount = getattr(session, "amount_total", None)
 
         if returned_amount != expected_amount:
-            self._mark_verification_required(
-                transaction_id=payment.transaction_id,
-                payload=payload,
-                reason="Payment amount mismatch.",
-            )
-
             return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        "Payment amount does not match "
-                        "the invoice amount."
-                    ),
-                },
+                {"status": "error", "message": "Payment amount does not match the invoice amount."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # -------------------------------------------------
-        # 4. Verify invoice reference
-        # -------------------------------------------------
+        payment_intent_id = getattr(session, "payment_intent", "") or ""
 
-        returned_bill_reference = payload.get(
-            "pp_BillReference",
-            "",
-        ).strip()
-
-        if (
-            returned_bill_reference
-            and returned_bill_reference
-            != payment.invoice.invoice_number
-        ):
-            self._mark_verification_required(
-                transaction_id=payment.transaction_id,
-                payload=payload,
-                reason="Invoice reference mismatch.",
-            )
-
+        try:
+            with transaction.atomic():
+                payment_result = mark_payment_success(
+                    payment.transaction_id,
+                    gateway_reference=payment_intent_id,
+                )
+        except ValidationError as exc:
             return Response(
-                {
-                    "status": "error",
-                    "message": (
-                        "Invoice reference does not match."
-                    ),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                {"status": "error", "message": str(exc)},
+                status=status.HTTP_409_CONFLICT,
             )
-
-        # -------------------------------------------------
-        # 5. Read JazzCash response information
-        # -------------------------------------------------
-
-        response_code = payload.get(
-            "pp_ResponseCode",
-            "",
-        ).strip()
-
-        response_message = payload.get(
-            "pp_ResponseMessage",
-            "",
-        ).strip()
-
-        # IMPORTANT:
-        # JazzCash documentation spells this field:
-        # pp_RetreivalReferenceNo
-        retrieval_reference = payload.get(
-            "pp_RetreivalReferenceNo",
-            "",
-        ).strip()
-
-        authorization_code = payload.get(
-            "pp_AuthCode",
-            "",
-        ).strip()
-
-        # -------------------------------------------------
-        # 6. Store gateway response information
-        # -------------------------------------------------
-
-        with transaction.atomic():
-            locked_payment = (
-                PaymentTransaction.objects
-                .select_for_update()
-                .get(
-                    pk=payment.pk,
-                )
-            )
-
-            locked_payment.gateway_response_code = (
-                response_code
-            )
-
-            locked_payment.gateway_response_message = (
-                response_message
-            )
-
-            locked_payment.retrieval_reference_number = (
-                retrieval_reference
-            )
-
-            locked_payment.authorization_code = (
-                authorization_code
-            )
-
-            if retrieval_reference:
-                locked_payment.gateway_reference = (
-                    retrieval_reference
-                )
-
-            locked_payment.save(
-                update_fields=[
-                    "gateway_response_code",
-                    "gateway_response_message",
-                    "retrieval_reference_number",
-                    "authorization_code",
-                    "gateway_reference",
-                    "updated_at",
-                ]
-            )
-
-            # -------------------------------------------------
-            # 7. Process successful/failed gateway response
-            # -------------------------------------------------
-
-            try:
-                if response_code == "000":
-                    payment_result = (
-                        mark_payment_success(
-                            locked_payment.transaction_id,
-                            gateway_reference=(
-                                retrieval_reference
-                            ),
-                        )
-                    )
-
-                    return Response(
-                        {
-                            "status": "success",
-                            "message": (
-                                "Payment processed "
-                                "successfully."
-                            ),
-                            "transaction_id": (
-                                payment_result.transaction_id
-                            ),
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                payment_result = (
-                    mark_payment_failed(
-                        locked_payment.transaction_id,
-                        gateway_reference=(
-                            retrieval_reference
-                        ),
-                    )
-                )
-
-            except ValidationError as exc:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": str(exc),
-                    },
-                    status=status.HTTP_409_CONFLICT,
-                )
 
         return Response(
             {
-                "status": "failed",
-                "message": (
-                    response_message
-                    or "JazzCash payment failed."
-                ),
-                "transaction_id": (
-                    payment_result.transaction_id
-                ),
-                "response_code": response_code,
+                "status": "success",
+                "message": "Payment processed successfully.",
+                "transaction_id": payment_result.transaction_id,
             },
             status=status.HTTP_200_OK,
         )
 
-    @staticmethod
-    def _mark_verification_required(
-        transaction_id,
-        payload,
-        reason="",
-    ):
-        """
-        Store an untrusted/suspicious callback.
+    def _handle_checkout_expired(self, session):
+        transaction_id = getattr(session, "client_reference_id", "") or ""
 
-        We use VERIFICATION_REQUIRED instead of FAILED
-        because an invalid hash, merchant ID, or amount
-        means we cannot safely determine that the callback
-        is a genuine payment failure.
-
-        A transaction that is already SUCCESS is never
-        downgraded.
-        """
-
-        with transaction.atomic():
-            payment = (
-                PaymentTransaction.objects
-                .select_for_update()
-                .get(
-                    transaction_id=transaction_id,
-                )
+        try:
+            payment_result = mark_payment_failed(transaction_id)
+        except PaymentTransaction.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "Payment transaction was not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-            payment.gateway_response_code = (
-                payload.get(
-                    "pp_ResponseCode",
-                    "",
-                )
-            )
-
-            payment.gateway_response_message = (
-                payload.get(
-                    "pp_ResponseMessage",
-                    "",
-                )
-                or reason
-            )
-
-            # JazzCash's documented spelling.
-            payment.retrieval_reference_number = (
-                payload.get(
-                    "pp_RetreivalReferenceNo",
-                    "",
-                )
-            )
-
-            payment.authorization_code = (
-                payload.get(
-                    "pp_AuthCode",
-                    "",
-                )
-            )
-
-            if payment.status != (
-                PaymentTransaction.Status.SUCCESS
-            ):
-                payment.status = (
-                    PaymentTransaction.Status
-                    .VERIFICATION_REQUIRED
-                )
-
-            retrieval_reference = (
-                payload.get(
-                    "pp_RetreivalReferenceNo",
-                    "",
-                )
-            )
-
-            if retrieval_reference:
-                payment.gateway_reference = (
-                    retrieval_reference
-                )
-
-            payment.save(
-                update_fields=[
-                    "status",
-                    "gateway_response_code",
-                    "gateway_response_message",
-                    "retrieval_reference_number",
-                    "authorization_code",
-                    "gateway_reference",
-                    "updated_at",
-                ]
-            )
+        return Response(
+            {
+                "status": "failed",
+                "message": "Checkout session expired.",
+                "transaction_id": payment_result.transaction_id,
+            },
+            status=status.HTTP_200_OK,
+        )

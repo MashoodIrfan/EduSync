@@ -1,5 +1,5 @@
-from .jazzcash import JazzCashGateway
+from .stripe_gateway import StripeGateway
 
 
 def get_payment_gateway():
-    return JazzCashGateway()
+    return StripeGateway()

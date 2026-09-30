@@ -66,7 +66,7 @@ class FeeInvoice(models.Model):
 class PaymentTransaction(models.Model):
 
     class Gateway(models.TextChoices):
-        JAZZCASH = "JAZZCASH", "JazzCash"
+        STRIPE = "STRIPE", "Stripe"
 
     class Status(models.TextChoices):
         INITIATED = "INITIATED", "Initiated"

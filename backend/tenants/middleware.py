@@ -6,12 +6,12 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 # Endpoints that legitimately need to run before (or without) tenant
 # context: authentication itself is a global lookup by username, the
-# JazzCash callback authenticates itself via secure hash instead of a
-# JWT, and Django admin/static assets are handled via the superuser
+# Stripe webhook authenticates itself via its own signature instead of
+# a JWT, and Django admin/static assets are handled via the superuser
 # check below.
 BYPASS_PATH_PREFIXES = (
     "/api/token/",
-    "/api/payments/jazzcash/return/",
+    "/api/payments/stripe/webhook/",
     "/admin/",
     "/static/",
 )

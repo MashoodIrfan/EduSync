@@ -35,6 +35,14 @@ DEBUG = env.bool("DEBUG", default=True)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+# Where the React app is served from — used to build Stripe Checkout's
+# success/cancel redirect URLs.
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
+STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+
 
 # Application definition
 

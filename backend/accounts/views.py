@@ -254,7 +254,7 @@ class ParentInitiatePaymentView(APIView):
                     parent=request.user,
                     transaction_id=transaction_id,
                     gateway=(
-                        PaymentTransaction.Gateway.JAZZCASH
+                        PaymentTransaction.Gateway.STRIPE
                     ),
                     amount=invoice.amount,
                     status=(
@@ -266,8 +266,8 @@ class ParentInitiatePaymentView(APIView):
         gateway = get_payment_gateway()
 
         try:
-            payment_payload = (
-                gateway.build_payment_payload(
+            checkout_session = (
+                gateway.create_checkout_session(
                     transaction
                 )
             )
@@ -275,7 +275,7 @@ class ParentInitiatePaymentView(APIView):
             return Response(
                 {
                     "detail": (
-                        "JazzCash payment configuration "
+                        "Stripe payment configuration "
                         "is not ready."
                     ),
                     "error": str(exc),
@@ -290,8 +290,7 @@ class ParentInitiatePaymentView(APIView):
                 "amount": str(transaction.amount),
                 "gateway": transaction.gateway,
                 "status": transaction.status,
-                "payment_url": gateway.payment_url,
-                "form_fields": payment_payload,
+                "checkout_url": checkout_session.url,
             },
             status=status.HTTP_201_CREATED,
         )

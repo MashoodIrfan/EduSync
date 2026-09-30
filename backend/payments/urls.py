@@ -1,14 +1,13 @@
 
 from django.urls import path
 
-from .views import JazzCashReturnView
+from .views import StripeWebhookView
 
 
 urlpatterns = [
     path(
-        "jazzcash/return/",
-        JazzCashReturnView.as_view(),
-        name="jazzcash-return",
+        "stripe/webhook/",
+        StripeWebhookView.as_view(),
+        name="stripe-webhook",
     ),
 ]
-
