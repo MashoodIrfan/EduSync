@@ -11,18 +11,22 @@ export function ParentFees() {
   const [payingId, setPayingId] = useState<number | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const paymentResult = searchParams.get("payment")
+  // Captured once from the URL and kept in state, so the banner stays
+  // visible even after the query param is stripped on the next line —
+  // otherwise the banner and its own cleanup effect would both fire
+  // off the same param and the banner would vanish within a frame.
+  const [paymentResult] = useState(() => searchParams.get("payment"))
 
   useEffect(() => {
-    if (!paymentResult) return
+    if (!searchParams.get("payment")) return
 
     const next = new URLSearchParams(searchParams)
     next.delete("payment")
     setSearchParams(next, { replace: true })
-    // Only run once per redirect back from Stripe, not on every
-    // searchParams/setSearchParams identity change.
+    // Run once on mount only — this just cleans the URL bar, it must
+    // not react to setSearchParams changing searchParams itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentResult])
+  }, [])
 
   if (isLoading) return <Spinner />
 
