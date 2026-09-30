@@ -33,7 +33,14 @@ SECRET_KEY = env(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+# Stripped per-entry: some hosting dashboards' env var editors are
+# textareas, where a stray trailing newline or space from typing/
+# pasting silently breaks Django's exact-match ALLOWED_HOSTS check.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+    if host.strip()
+]
 
 # Where the React app is served from — used to build Stripe Checkout's
 # success/cancel redirect URLs.
