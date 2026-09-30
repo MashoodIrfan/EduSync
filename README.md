@@ -17,7 +17,7 @@ Exactly four login roles — there is no Student login; students are academic re
 
 - **Real tenant isolation, two layers deep.** Every DRF view/serializer scopes to `request.user.tenant`; PostgreSQL Row-Level Security policies enforce the same boundary at the database level, verified by tests that run genuinely unfiltered queries under different session contexts.
 - **No partial payments.** A `FeeInvoice` is paid in full or not at all; the frontend can never submit an arbitrary amount, and an invoice can only become `PAID` via the server-side payment state machine — never a manual admin action.
-- **Idempotent, auditable payments.** `PaymentTransaction` moves through `INITIATED → PENDING → SUCCESS/FAILED/VERIFICATION_REQUIRED` under an atomic, row-locked state transition. Duplicate gateway callbacks never double-process; unsigned or mismatched callbacks fail closed into `VERIFICATION_REQUIRED` instead of silently succeeding.
+- **Idempotent, auditable payments.** `PaymentTransaction` moves through `INITIATED → PENDING → SUCCESS/FAILED/VERIFICATION_REQUIRED` under an atomic, row-locked state transition. Duplicate Stripe webhook events never double-process; an invalid webhook signature is rejected outright, and an amount mismatch never silently marks an invoice paid.
 - **JWT carries authorization context.** Access tokens embed role and tenant as custom claims, used both by the frontend for routing and by the RLS middleware to set database session context — without an extra round-trip.
 - **Offline-first attendance.** The Teacher portal is an installable PWA: class rosters cache to IndexedDB on every successful fetch, and marking attendance always writes to a local sync queue first — identical behavior online or off. A network failure retries automatically on reconnect; a genuine duplicate is detected and surfaced as a conflict instead of being retried forever.
 - **Privileged-action audit trail.** Account creation/deactivation, fee invoice changes, tenant management, and payment outcomes are logged explicitly (not via blanket signals) with an actor that survives the actor's own account later being deleted — the actual point of an audit log.
@@ -26,9 +26,9 @@ Exactly four login roles — there is no Student login; students are academic re
 
 **Backend:** Python, Django 5.2, Django REST Framework, PostgreSQL, SimpleJWT, django-environ, PostgreSQL Row-Level Security, Gunicorn, Whitenoise
 
-**Frontend:** React, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa
+**Frontend:** React, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa, Vitest, React Testing Library
 
-**Payments:** JazzCash (sandbox integration deferred pending gateway account access; local callback verification logic is fully implemented and tested)
+**Payments:** Stripe Checkout — full integration built and tested (Checkout Session creation, webhook signature verification, idempotent state transitions); going live is pending a Stripe-supported business entity, since Stripe doesn't operate directly in Pakistan
 
 **Infra:** Docker, Docker Compose
 
@@ -49,7 +49,7 @@ cd backend
 python -m venv venv
 venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-cp .env.example .env           # fill in SECRET_KEY, POSTGRES_*, JAZZCASH_* (see below)
+cp .env.example .env           # fill in SECRET_KEY, POSTGRES_*, STRIPE_* (see below)
 python manage.py migrate
 python manage.py test
 python manage.py runserver
@@ -84,6 +84,6 @@ Defaults are meant for local/demo use only — set real values (`SECRET_KEY`, `P
 
 ## Roadmap
 
-Implemented: multi-tenant models, JWT auth, Parent/Teacher/School Admin/Platform Admin APIs and dashboards, JazzCash callback verification (sandbox credentials pending), PostgreSQL RLS, offline-first attendance PWA, privileged-action audit log, Docker, GitHub Actions CI.
+Implemented: multi-tenant models, JWT auth, Parent/Teacher/School Admin/Platform Admin APIs and dashboards, Stripe Checkout + webhook verification (real API keys pending), PostgreSQL RLS, offline-first attendance PWA, privileged-action audit log, Docker, GitHub Actions CI, frontend automated tests (Vitest).
 
-Ahead: payment reconciliation for stuck `PENDING` transactions (needs live JazzCash sandbox access + Celery), Redis, Celery, frontend automated tests, deployment.
+Ahead: payment reconciliation for stuck `PENDING` transactions (needs Redis + Celery), Redis, Celery, deployment.
