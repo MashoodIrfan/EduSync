@@ -2,10 +2,10 @@ import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
 import { useInitiatePayment, useParentFees } from "../../api/parent"
-import { Badge, Button, Card, ErrorBanner, PageTitle, Spinner, extractErrorMessage } from "../../components/ui"
+import { Badge, Button, Card, ErrorBanner, LoadError, PageTitle, Spinner, extractErrorMessage } from "../../components/ui"
 
 export function ParentFees() {
-  const { data, isLoading } = useParentFees()
+  const { data, isLoading, isError, refetch } = useParentFees()
   const initiatePayment = useInitiatePayment()
   const [error, setError] = useState("")
   const [payingId, setPayingId] = useState<number | null>(null)
@@ -29,6 +29,7 @@ export function ParentFees() {
   }, [])
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   async function handlePay(invoiceId: number) {
     setError("")

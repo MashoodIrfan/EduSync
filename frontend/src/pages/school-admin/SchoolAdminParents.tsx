@@ -7,16 +7,17 @@ import {
   useResetParentPassword,
   useStudents,
 } from "../../api/schoolAdmin"
-import { Button, Card, ErrorBanner, Field, Input, Modal, PageTitle, Select, Spinner, SuccessBanner, extractErrorMessage } from "../../components/ui"
+import { Button, Card, ErrorBanner, Field, Input, LoadError, Modal, PageTitle, Select, Spinner, SuccessBanner, extractErrorMessage } from "../../components/ui"
 
 export function SchoolAdminParents() {
-  const { data, isLoading } = useParents()
+  const { data, isLoading, isError, refetch } = useParents()
   const resetPassword = useResetParentPassword()
   const deleteParent = useDeleteParent()
   const [showForm, setShowForm] = useState(false)
   const [resetResult, setResetResult] = useState<{ username: string; password: string } | null>(null)
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   async function handleReset(id: number, username: string) {
     const result = await resetPassword.mutateAsync(id)

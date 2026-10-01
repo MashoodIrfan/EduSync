@@ -1,7 +1,7 @@
 import { Activity } from "lucide-react"
 
 import { useAuditLog } from "../../api/schoolAdmin"
-import { Card, EmptyState, PageTitle, Spinner } from "../../components/ui"
+import { Card, EmptyState, LoadError, PageTitle, Spinner } from "../../components/ui"
 
 function formatAction(action: string) {
   return action
@@ -11,9 +11,10 @@ function formatAction(action: string) {
 }
 
 export function SchoolAdminActivityLog() {
-  const { data, isLoading } = useAuditLog()
+  const { data, isLoading, isError, refetch } = useAuditLog()
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
@@ -39,7 +40,7 @@ export function SchoolAdminActivityLog() {
                 </td>
                 <td className="px-4 py-2">{entry.actor_label || "system"}</td>
                 <td className="px-4 py-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
                     <Activity size={12} />
                     {formatAction(entry.action)}
                   </span>

@@ -10,17 +10,32 @@ import {
   useStudents,
   useTeachers,
 } from "../../api/schoolAdmin"
-import { Card, Spinner } from "../../components/ui"
+import { Card, LoadError, Spinner } from "../../components/ui"
 import { DashboardHeader, RadialProgress, StatCard } from "../../components/widgets"
 
 export function SchoolAdminDashboard() {
   const { user } = useAuth()
-  const { data: school, isLoading: schoolLoading } = useSchool()
-  const { data: classes, isLoading: classesLoading } = useClasses()
-  const { data: students, isLoading: studentsLoading } = useStudents()
-  const { data: teachers, isLoading: teachersLoading } = useTeachers()
-  const { data: invoices, isLoading: invoicesLoading } = useFeeInvoices()
-  const { data: parents, isLoading: parentsLoading } = useParents()
+  const { data: school, isLoading: schoolLoading, isError: schoolError, refetch: refetchSchool } = useSchool()
+  const { data: classes, isLoading: classesLoading, isError: classesError, refetch: refetchClasses } = useClasses()
+  const {
+    data: students,
+    isLoading: studentsLoading,
+    isError: studentsError,
+    refetch: refetchStudents,
+  } = useStudents()
+  const {
+    data: teachers,
+    isLoading: teachersLoading,
+    isError: teachersError,
+    refetch: refetchTeachers,
+  } = useTeachers()
+  const {
+    data: invoices,
+    isLoading: invoicesLoading,
+    isError: invoicesError,
+    refetch: refetchInvoices,
+  } = useFeeInvoices()
+  const { data: parents, isLoading: parentsLoading, isError: parentsError, refetch: refetchParents } = useParents()
 
   if (
     schoolLoading ||
@@ -31,6 +46,21 @@ export function SchoolAdminDashboard() {
     parentsLoading
   ) {
     return <Spinner />
+  }
+
+  if (schoolError || classesError || studentsError || teachersError || invoicesError || parentsError) {
+    return (
+      <LoadError
+        onRetry={() => {
+          if (schoolError) refetchSchool()
+          if (classesError) refetchClasses()
+          if (studentsError) refetchStudents()
+          if (teachersError) refetchTeachers()
+          if (invoicesError) refetchInvoices()
+          if (parentsError) refetchParents()
+        }}
+      />
+    )
   }
 
   const paidCount = invoices?.filter((invoice) => invoice.status === "PAID").length ?? 0
@@ -46,7 +76,7 @@ export function SchoolAdminDashboard() {
       />
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Layers} label="Classes" value={classes?.length ?? 0} tone="indigo" />
+        <StatCard icon={Layers} label="Classes" value={classes?.length ?? 0} tone="brand" />
         <StatCard icon={Users} label="Students" value={students?.length ?? 0} tone="blue" />
         <StatCard icon={UserCog} label="Teachers" value={teachers?.length ?? 0} tone="emerald" />
         <StatCard icon={Receipt} label="Unpaid Invoices" value={unpaidCount} tone="amber" />
@@ -61,14 +91,14 @@ export function SchoolAdminDashboard() {
         <Card className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-900">Recent Parent Accounts</p>
-            <Link to="/school-admin/parents" className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+            <Link to="/school-admin/parents" className="text-xs font-medium text-brand-600 hover:text-brand-800">
               View All
             </Link>
           </div>
           <div className="space-y-3">
             {recentParents.map((parent) => (
               <div key={parent.id} className="flex items-center gap-3 border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-600">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-600">
                   <UserRound size={16} />
                 </div>
                 <div className="min-w-0 flex-1">

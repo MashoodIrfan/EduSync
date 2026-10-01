@@ -1,10 +1,11 @@
 import { useParentPayments } from "../../api/parent"
-import { Badge, Card, PageTitle, Spinner } from "../../components/ui"
+import { Badge, Card, LoadError, PageTitle, Spinner } from "../../components/ui"
 
 export function ParentPayments() {
-  const { data, isLoading } = useParentPayments()
+  const { data, isLoading, isError, refetch } = useParentPayments()
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>

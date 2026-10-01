@@ -8,14 +8,15 @@ import {
   useTeacherAssignments,
   useTeachers,
 } from "../../api/schoolAdmin"
-import { Button, Card, ErrorBanner, Field, Modal, PageTitle, Select, Spinner, extractErrorMessage } from "../../components/ui"
+import { Button, Card, ErrorBanner, Field, LoadError, Modal, PageTitle, Select, Spinner, extractErrorMessage } from "../../components/ui"
 
 export function SchoolAdminTeacherAssignments() {
-  const { data, isLoading } = useTeacherAssignments()
+  const { data, isLoading, isError, refetch } = useTeacherAssignments()
   const deleteAssignment = useDeleteTeacherAssignment()
   const [showForm, setShowForm] = useState(false)
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>

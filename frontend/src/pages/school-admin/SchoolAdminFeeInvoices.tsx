@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from "react"
 
 import { useCancelFeeInvoice, useCreateFeeInvoice, useFeeInvoices, useStudents } from "../../api/schoolAdmin"
-import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, PageTitle, Select, Spinner, extractErrorMessage } from "../../components/ui"
+import { Badge, Button, Card, ErrorBanner, Field, Input, LoadError, Modal, PageTitle, Select, Spinner, extractErrorMessage } from "../../components/ui"
 
 export function SchoolAdminFeeInvoices() {
-  const { data, isLoading } = useFeeInvoices()
+  const { data, isLoading, isError, refetch } = useFeeInvoices()
   const cancelInvoice = useCancelFeeInvoice()
   const [showForm, setShowForm] = useState(false)
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>

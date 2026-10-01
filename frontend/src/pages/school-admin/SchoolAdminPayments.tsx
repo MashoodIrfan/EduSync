@@ -1,10 +1,11 @@
 import { usePayments } from "../../api/schoolAdmin"
-import { Badge, Card, PageTitle, Spinner } from "../../components/ui"
+import { Badge, Card, LoadError, PageTitle, Spinner } from "../../components/ui"
 
 export function SchoolAdminPayments() {
-  const { data, isLoading } = usePayments()
+  const { data, isLoading, isError, refetch } = usePayments()
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
