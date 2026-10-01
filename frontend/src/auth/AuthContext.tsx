@@ -21,6 +21,7 @@ function decodeUser(accessToken: string): AuthUser {
     id: decoded.user_id,
     role: decoded.role,
     tenantId: decoded.tenant_id,
+    tenantName: decoded.tenant_name,
     username: decoded.username,
     firstName: decoded.first_name,
     lastName: decoded.last_name,

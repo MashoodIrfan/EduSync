@@ -130,7 +130,7 @@ export function TeacherSyncStatus() {
                         {item.syncStatus === "failed" && (
                           <button
                             onClick={() => teacherId && retryItem(teacherId, item.id!)}
-                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                            className="text-xs font-medium text-brand-600 hover:text-brand-800"
                           >
                             Retry
                           </button>

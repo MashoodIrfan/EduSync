@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react"
+import { School } from "lucide-react"
 
 import { Card } from "./ui"
 
@@ -11,8 +12,8 @@ export function RadialProgress({
   size = 128,
   strokeWidth = 12,
   label,
-  color = "#4f46e5",
-  trackColor = "#eef2ff",
+  color = "#5e7163",
+  trackColor = "#e4e9e0",
 }: {
   value: number
   size?: number
@@ -67,7 +68,7 @@ export function RadialProgress({
 export function TrendChart({
   points,
   height = 140,
-  color = "#4f46e5",
+  color = "#5e7163",
 }: {
   points: { label: string; value: number }[]
   height?: number
@@ -124,7 +125,7 @@ export function TrendChart({
 // ---------------------------------------------------------------
 
 const TONES: Record<string, { bg: string; text: string }> = {
-  indigo: { bg: "bg-indigo-50", text: "text-indigo-600" },
+  brand: { bg: "bg-brand-50", text: "text-brand-600" },
   emerald: { bg: "bg-emerald-50", text: "text-emerald-600" },
   amber: { bg: "bg-amber-50", text: "text-amber-600" },
   red: { bg: "bg-red-50", text: "text-red-600" },
@@ -135,7 +136,7 @@ export function StatCard({
   icon: Icon,
   label,
   value,
-  tone = "indigo",
+  tone = "brand",
 }: {
   icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
   label: string
@@ -176,7 +177,15 @@ export function Pill({ tone, children }: { tone: "red" | "amber" | "emerald" | "
 // Dashboard header: greeting + live date.
 // ---------------------------------------------------------------
 
-export function DashboardHeader({ greeting, subtitle }: { greeting: string; subtitle?: string }) {
+export function DashboardHeader({
+  greeting,
+  subtitle,
+  schoolName,
+}: {
+  greeting: string
+  subtitle?: string
+  schoolName?: string | null
+}) {
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
@@ -186,8 +195,16 @@ export function DashboardHeader({ greeting, subtitle }: { greeting: string; subt
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{greeting} 👋</h1>
-        {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{greeting}</h1>
+          {schoolName && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
+              <School size={12} strokeWidth={2.5} />
+              {schoolName}
+            </span>
+          )}
+        </div>
+        {subtitle && <p className="mt-1.5 text-sm text-gray-500">{subtitle}</p>}
       </div>
       <span className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500">
         {today}
