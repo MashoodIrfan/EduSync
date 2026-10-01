@@ -53,8 +53,11 @@ ALLOWED_HOSTS = [
 ]
 
 # Where the React app is served from — used to build Stripe Checkout's
-# success/cancel redirect URLs.
-FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+# success/cancel redirect URLs. Stripped for the same reason as
+# ALLOWED_HOSTS above: a stray trailing newline/space from pasting
+# into a hosting dashboard's env var field would otherwise land
+# inside the URL Stripe receives, which it then rejects outright.
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173").strip()
 
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
