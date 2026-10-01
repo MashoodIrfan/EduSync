@@ -98,6 +98,14 @@ class PlatformAdminSchoolAdminSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         tenant = self.context["tenant"]
+
+        if User.objects.filter(
+            role=User.Role.SCHOOL_ADMIN, tenant=tenant, is_active=True
+        ).exists():
+            raise serializers.ValidationError(
+                "This school already has an admin. Remove the existing admin before adding another."
+            )
+
         password = (
             validated_data.pop("password", None)
             or get_random_string(12)

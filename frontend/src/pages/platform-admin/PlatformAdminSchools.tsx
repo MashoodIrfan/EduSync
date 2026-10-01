@@ -10,6 +10,7 @@ import {
   ErrorBanner,
   Field,
   Input,
+  LoadError,
   Modal,
   PageTitle,
   Spinner,
@@ -17,10 +18,11 @@ import {
 } from "../../components/ui"
 
 export function PlatformAdminSchools() {
-  const { data, isLoading } = useTenants()
+  const { data, isLoading, isError, refetch } = useTenants()
   const [showForm, setShowForm] = useState(false)
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
@@ -35,13 +37,13 @@ export function PlatformAdminSchools() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data?.map((tenant) => (
           <Link key={tenant.id} to={`/platform-admin/schools/${tenant.id}`}>
-            <Card className="h-full transition hover:border-indigo-200 hover:shadow-md">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <Card className="h-full transition hover:border-brand-200 hover:shadow-md">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                 <SchoolIcon size={18} strokeWidth={2} />
               </div>
               <p className="text-base font-semibold text-gray-900">{tenant.name}</p>
               <p className="mb-4 text-xs text-gray-400">{tenant.slug}</p>
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600">
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-brand-600">
                 Manage
                 <ArrowRight size={15} />
               </span>

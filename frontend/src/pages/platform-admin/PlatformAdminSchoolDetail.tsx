@@ -1,14 +1,14 @@
-import { ArrowLeft, Plus, UserRound } from "lucide-react"
+import { ArrowLeft, Pencil, Plus, UserRound } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Link, useParams } from "react-router-dom"
 
 import {
-  useAuditLog,
   useCreateSchoolAdmin,
   useDeleteSchoolAdmin,
   useSchoolAdmins,
   useTenant,
   useToggleSchoolAdminActive,
+  useUpdateTenant,
 } from "../../api/platformAdmin"
 import {
   Button,
@@ -17,6 +17,7 @@ import {
   ErrorBanner,
   Field,
   Input,
+  LoadError,
   Modal,
   PageTitle,
   Spinner,
@@ -28,14 +29,29 @@ export function PlatformAdminSchoolDetail() {
   const { tenantId } = useParams()
   const tenantIdNum = Number(tenantId)
 
-  const { data: tenant, isLoading: tenantLoading } = useTenant(tenantIdNum)
-  const { data: admins, isLoading: adminsLoading } = useSchoolAdmins(tenantIdNum)
-  const { data: auditLog } = useAuditLog(tenantIdNum)
+  const {
+    data: tenant,
+    isLoading: tenantLoading,
+    isError: tenantError,
+    refetch: refetchTenant,
+  } = useTenant(tenantIdNum)
+  const {
+    data: admins,
+    isLoading: adminsLoading,
+    isError: adminsError,
+    refetch: refetchAdmins,
+  } = useSchoolAdmins(tenantIdNum)
   const toggleActive = useToggleSchoolAdminActive(tenantIdNum)
   const deleteAdmin = useDeleteSchoolAdmin(tenantIdNum)
   const [showForm, setShowForm] = useState(false)
+  const [showEditName, setShowEditName] = useState(false)
 
   if (tenantLoading || adminsLoading) return <Spinner />
+  if (tenantError || adminsError) {
+    return <LoadError onRetry={() => (tenantError ? refetchTenant() : refetchAdmins())} />
+  }
+
+  const hasActiveAdmin = admins?.some((admin) => admin.is_active) ?? false
 
   return (
     <div>
@@ -47,7 +63,16 @@ export function PlatformAdminSchoolDetail() {
         All Schools
       </Link>
 
-      <PageTitle subtitle={tenant?.slug}>{tenant?.name}</PageTitle>
+      <div className="flex items-center gap-2">
+        <PageTitle subtitle={tenant?.slug}>{tenant?.name}</PageTitle>
+        <button
+          aria-label="Edit school name"
+          onClick={() => setShowEditName(true)}
+          className="-mt-5 rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+        >
+          <Pencil size={15} />
+        </button>
+      </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
@@ -66,7 +91,11 @@ export function PlatformAdminSchoolDetail() {
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-base font-semibold text-gray-900">School Admins</h2>
-        <Button onClick={() => setShowForm(true)}>
+        <Button
+          onClick={() => setShowForm(true)}
+          disabled={hasActiveAdmin}
+          title={hasActiveAdmin ? "This school already has an active admin" : undefined}
+        >
           <Plus size={16} />
           Add School Admin
         </Button>
@@ -119,39 +148,62 @@ export function PlatformAdminSchoolDetail() {
         )}
       </Card>
 
-      <h2 className="mb-4 mt-8 text-base font-semibold text-gray-900">Recent Activity</h2>
-      <Card className="overflow-x-auto p-0">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-2">When</th>
-              <th className="px-4 py-2">Who</th>
-              <th className="px-4 py-2">Action</th>
-              <th className="px-4 py-2">Target</th>
-            </tr>
-          </thead>
-          <tbody>
-            {auditLog?.map((entry) => (
-              <tr key={entry.id} className="border-b border-gray-100">
-                <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-400">
-                  {new Date(entry.created_at).toLocaleString()}
-                </td>
-                <td className="px-4 py-2">{entry.actor_label || "system"}</td>
-                <td className="px-4 py-2">
-                  <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
-                    {entry.action.replaceAll("_", " ")}
-                  </span>
-                </td>
-                <td className="px-4 py-2 text-gray-600">{entry.object_repr}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {auditLog?.length === 0 && <EmptyState>No activity recorded for this school yet.</EmptyState>}
-      </Card>
-
       {showForm && <CreateSchoolAdminModal tenantId={tenantIdNum} onClose={() => setShowForm(false)} />}
+      {showEditName && tenant && (
+        <EditSchoolNameModal
+          tenantId={tenantIdNum}
+          currentName={tenant.name}
+          onClose={() => setShowEditName(false)}
+        />
+      )}
     </div>
+  )
+}
+
+function EditSchoolNameModal({
+  tenantId,
+  currentName,
+  onClose,
+}: {
+  tenantId: number
+  currentName: string
+  onClose: () => void
+}) {
+  const updateTenant = useUpdateTenant(tenantId)
+  const [name, setName] = useState(currentName)
+  const [error, setError] = useState("")
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setError("")
+
+    try {
+      await updateTenant.mutateAsync({ name })
+      onClose()
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    }
+  }
+
+  return (
+    <Modal title="Edit School Name" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <ErrorBanner message={error} />
+
+        <Field label="School Name">
+          <Input value={name} onChange={(event) => setName(event.target.value)} required />
+        </Field>
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={updateTenant.isPending}>
+            Save
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
