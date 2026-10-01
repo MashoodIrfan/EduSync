@@ -17,7 +17,7 @@ export default defineConfig({
         name: 'EduSync',
         short_name: 'EduSync',
         description: 'Multi-tenant school operations and fee-payment platform',
-        theme_color: '#4f46e5',
+        theme_color: '#5e7163',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',

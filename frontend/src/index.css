@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/*
+ * Nature-inspired palette — muted sage green as the primary brand
+ * color (sidebar, buttons, active states; #5E7163 grounds the 600
+ * shade), warm terracotta as the secondary accent (alerts, "needs
+ * attention" badges). "brand" keeps the same 50-900 shade numbers
+ * every component already references — only the hue underneath
+ * changed, so this file is the one place a full re-theme happens.
+ */
+@theme {
+  --color-brand-50: #f3f5f1;
+  --color-brand-100: #e4e9e0;
+  --color-brand-200: #c9d3c1;
+  --color-brand-300: #a8b89c;
+  --color-brand-400: #869c76;
+  --color-brand-500: #6c8560;
+  --color-brand-600: #5e7163;
+  --color-brand-700: #4b5c50;
+  --color-brand-800: #3a473f;
+  --color-brand-900: #2c362f;
+
+  --color-terracotta-50: #fdf3ee;
+  --color-terracotta-100: #fae3d4;
+  --color-terracotta-200: #f3c3a3;
+  --color-terracotta-500: #c2683f;
+  --color-terracotta-600: #a8552f;
+  --color-terracotta-700: #864325;
+}
+
 :root {
   color-scheme: light;
 }
@@ -7,7 +35,7 @@
 body {
   margin: 0;
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
-  background-color: #ffffff;
+  background-color: #fafaf9;
   -webkit-font-smoothing: antialiased;
 }
 
