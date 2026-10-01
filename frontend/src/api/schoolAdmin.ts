@@ -40,6 +40,23 @@ export function useCreateClass() {
   })
 }
 
+export function useUpdateClass() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: number; name: string; section: string }) =>
+      (await apiClient.patch(`/school-admin/classes/${id}/`, payload)).data,
+    onSuccess: () => invalidate(queryClient, "classes"),
+  })
+}
+
+export function useDeleteClass() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => (await apiClient.delete(`/school-admin/classes/${id}/`)).data,
+    onSuccess: () => invalidate(queryClient, "classes"),
+  })
+}
+
 // ---- Subjects ----
 
 export function useSubjects() {
@@ -51,6 +68,23 @@ export function useCreateSubject() {
   return useMutation({
     mutationFn: async (payload: { name: string; code: string }) =>
       (await apiClient.post("/school-admin/subjects/", payload)).data,
+    onSuccess: () => invalidate(queryClient, "subjects"),
+  })
+}
+
+export function useUpdateSubject() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: number; name: string; code: string }) =>
+      (await apiClient.patch(`/school-admin/subjects/${id}/`, payload)).data,
+    onSuccess: () => invalidate(queryClient, "subjects"),
+  })
+}
+
+export function useDeleteSubject() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => (await apiClient.delete(`/school-admin/subjects/${id}/`)).data,
     onSuccess: () => invalidate(queryClient, "subjects"),
   })
 }
@@ -73,6 +107,32 @@ export function useCreateStudent() {
       date_of_birth: string
       class_room: number
     }) => (await apiClient.post("/school-admin/students/", payload)).data,
+    onSuccess: () => invalidate(queryClient, "students"),
+  })
+}
+
+export function useUpdateStudent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...payload
+    }: {
+      id: number
+      student_id: string
+      first_name: string
+      last_name: string
+      date_of_birth: string
+      class_room: number
+    }) => (await apiClient.patch(`/school-admin/students/${id}/`, payload)).data,
+    onSuccess: () => invalidate(queryClient, "students"),
+  })
+}
+
+export function useDeleteStudent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => (await apiClient.delete(`/school-admin/students/${id}/`)).data,
     onSuccess: () => invalidate(queryClient, "students"),
   })
 }

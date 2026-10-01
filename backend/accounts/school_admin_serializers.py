@@ -610,6 +610,7 @@ class SchoolAdminTenantSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id",
+            "name",
             "slug",
             "created_at",
             "updated_at",

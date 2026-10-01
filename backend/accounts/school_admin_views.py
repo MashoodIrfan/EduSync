@@ -2,6 +2,7 @@ from django.utils.crypto import get_random_string
 
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -29,6 +30,17 @@ from .school_admin_serializers import (
 
 
 class SchoolAdminClassViewSet(viewsets.ModelViewSet):
+    """
+    Editing a class (its name/section) is always safe — nothing else
+    references those fields by value. Deleting one is only safe when
+    it's genuinely unused: Student.class_room is already DB-level
+    PROTECTed, but TeacherAssignment and AttendanceRecord both cascade
+    from Class, which would silently wipe real attendance history if
+    deletion were allowed unconditionally. perform_destroy blocks all
+    three cases explicitly with one clear error each, rather than
+    leaking a raw ProtectedError for only the student case.
+    """
+
     permission_classes = [IsAuthenticated, IsSchoolAdmin]
     serializer_class = SchoolAdminClassSerializer
 
@@ -37,8 +49,28 @@ class SchoolAdminClassViewSet(viewsets.ModelViewSet):
             tenant=self.request.user.tenant
         ).order_by("name", "section")
 
+    def perform_destroy(self, instance):
+        if instance.students.exists():
+            raise ValidationError(
+                "Cannot delete a class that has students enrolled."
+            )
+
+        if instance.teacher_assignments.exists():
+            raise ValidationError(
+                "Cannot delete a class that has teacher assignments."
+            )
+
+        if instance.attendance_records.exists():
+            raise ValidationError(
+                "Cannot delete a class that has attendance records."
+            )
+
+        instance.delete()
+
 
 class SchoolAdminSubjectViewSet(viewsets.ModelViewSet):
+    """Edit/delete — same reasoning as SchoolAdminClassViewSet."""
+
     permission_classes = [IsAuthenticated, IsSchoolAdmin]
     serializer_class = SchoolAdminSubjectSerializer
 
@@ -47,10 +79,50 @@ class SchoolAdminSubjectViewSet(viewsets.ModelViewSet):
             tenant=self.request.user.tenant
         ).order_by("name")
 
+    def perform_destroy(self, instance):
+        if instance.teacher_assignments.exists():
+            raise ValidationError(
+                "Cannot delete a subject that has teacher assignments."
+            )
+
+        if instance.attendance_records.exists():
+            raise ValidationError(
+                "Cannot delete a subject that has attendance records."
+            )
+
+        instance.delete()
+
 
 class SchoolAdminStudentViewSet(viewsets.ModelViewSet):
+    """
+    Editing a student's own details is always safe. Deleting one
+    cascades into AttendanceRecord, FeeInvoice, and ParentProfile
+    (PaymentTransaction.invoice is itself PROTECTed, so a paid
+    invoice already blocks the cascade one level up) — allowed only
+    for a student with no real activity yet, same "block if in use"
+    rule as classes/subjects above.
+    """
+
     permission_classes = [IsAuthenticated, IsSchoolAdmin]
     serializer_class = SchoolAdminStudentSerializer
+
+    def perform_destroy(self, instance):
+        if instance.attendance_records.exists():
+            raise ValidationError(
+                "Cannot delete a student that has attendance records."
+            )
+
+        if instance.fee_invoices.exists():
+            raise ValidationError(
+                "Cannot delete a student that has fee invoices."
+            )
+
+        if ParentProfile.objects.filter(student=instance).exists():
+            raise ValidationError(
+                "Cannot delete a student linked to a parent account."
+            )
+
+        instance.delete()
 
     def get_queryset(self):
         queryset = Student.objects.filter(
