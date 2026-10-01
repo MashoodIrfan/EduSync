@@ -1,3 +1,4 @@
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -19,3 +20,5 @@ class EduSyncTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class EduSyncTokenObtainPairView(TokenObtainPairView):
     serializer_class = EduSyncTokenObtainPairSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"

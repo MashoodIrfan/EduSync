@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,14 +25,23 @@ environ.Env.read_env(BASE_DIR / ".env")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env(
-    "SECRET_KEY",
-    default="django-insecure-development-only",
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool("DEBUG", default=True)
+# Defaults to False (safe) rather than True — a missing/misspelled
+# env var in a new deployment should fail closed, not silently leak
+# stack traces and settings to every visitor. Local dev sets this
+# explicitly via backend/.env.example.
+DEBUG = env.bool("DEBUG", default=False)
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# No insecure fallback when DEBUG is off — a production deploy that
+# forgets to set this should crash at startup, not silently run on a
+# well-known, guessable key. The insecure default only exists to keep
+# local `manage.py runserver` working out of the box.
+SECRET_KEY = env("SECRET_KEY", default="") or ("django-insecure-development-only" if DEBUG else "")
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        "SECRET_KEY environment variable must be set when DEBUG is False."
+    )
 
 # Stripped per-entry: some hosting dashboards' env var editors are
 # textareas, where a stray trailing newline or space from typing/
@@ -49,6 +59,19 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+
+# Render (and the local nginx proxy, in prod-like compose) terminate
+# TLS and forward plain HTTP to this container, setting this header
+# to say the original request was HTTPS. Without it Django thinks
+# every request is insecure, which would make the Secure cookie
+# flags below silently drop the Django-admin session/CSRF cookies.
+# No SECURE_SSL_REDIRECT here deliberately — Render already redirects
+# HTTP to HTTPS at its edge, and adding a second redirect in Django
+# risks a loop if this header is ever absent (e.g. a health check
+# hitting the container directly).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 
 # Application definition
@@ -192,4 +215,18 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    # "login" and "payment-initiate" are applied explicitly via
+    # ScopedRateThrottle on the views that need a tighter ceiling
+    # than the general anon/user rates (brute-force login attempts,
+    # repeated Stripe Checkout session creation).
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/min",
+        "user": "180/min",
+        "login": "8/min",
+        "payment-initiate": "10/min",
+    },
 }

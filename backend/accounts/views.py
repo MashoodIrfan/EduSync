@@ -186,6 +186,8 @@ class ParentInitiatePaymentView(APIView):
         IsAuthenticated,
         CanUseParentPortal,
     ]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "payment-initiate"
 
     def post(self, request):
         profile = request.user.parent_profile
