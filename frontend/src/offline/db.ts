@@ -16,6 +16,7 @@ export interface QueuedAttendance {
   subjectLabel: string
   date: string
   status: AttendanceStatus
+  remark?: string
   queuedAt: string
   syncStatus: SyncStatus
   syncError?: string

@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import type { TeacherAssignmentInfo, TeacherAttendanceInfo, TeacherStudentInfo } from "../types"
+import type {
+  AttendanceStatusChangeInfo,
+  TeacherAssignmentInfo,
+  TeacherAttendanceInfo,
+  TeacherStudentInfo,
+} from "../types"
 import { apiClient } from "./client"
 
 export function useTeacherAssignments() {
@@ -50,6 +55,7 @@ interface MarkAttendancePayload {
   subject: number
   date: string
   status: "PRESENT" | "ABSENT" | "LATE"
+  remark?: string
 }
 
 export function useMarkAttendance() {
@@ -66,18 +72,14 @@ export function useMarkAttendance() {
   })
 }
 
-export function useAddAttendanceRemark() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ attendanceId, remark }: { attendanceId: number; remark: string }) => {
-      const response = await apiClient.post(`/teacher/attendance/${attendanceId}/remark/`, {
-        remark,
-      })
+export function useAttendanceStatusChanges() {
+  return useQuery({
+    queryKey: ["teacher", "attendance", "status-changes"],
+    queryFn: async () => {
+      const response = await apiClient.get<AttendanceStatusChangeInfo[]>(
+        "/teacher/attendance/status-changes/",
+      )
       return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["teacher", "attendance"] })
     },
   })
 }

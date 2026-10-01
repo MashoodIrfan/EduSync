@@ -9,6 +9,7 @@ class EduSyncTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         token["role"] = user.role
         token["tenant_id"] = user.tenant_id
+        token["tenant_name"] = user.tenant.name if user.tenant_id else None
         token["username"] = user.username
         token["first_name"] = user.first_name
         token["last_name"] = user.last_name

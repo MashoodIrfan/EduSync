@@ -133,3 +133,54 @@ class AttendanceRemark(models.Model):
 
     def __str__(self):
         return f"Remark for {self.attendance_record.student}"
+
+
+class AttendanceStatusChange(models.Model):
+    """
+    One row per time a teacher actually changes an existing attendance
+    record's status (not the initial marking) — lets "recent activity"
+    show the before/after instead of only ever showing the latest
+    state. Deliberately a small, purpose-built model rather than using
+    the generic admin-facing `audit` app: this is a teacher-facing
+    worklist, not an accountability trail for admins, and the audit
+    app's read endpoints are intentionally admin-only.
+    """
+
+    tenant = models.ForeignKey(
+        "tenants.Tenant",
+        on_delete=models.CASCADE,
+        related_name="attendance_status_changes",
+    )
+
+    attendance_record = models.ForeignKey(
+        AttendanceRecord,
+        on_delete=models.CASCADE,
+        related_name="status_changes",
+    )
+
+    teacher = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="attendance_status_changes",
+    )
+
+    previous_status = models.CharField(
+        max_length=10,
+        choices=AttendanceRecord.Status.choices,
+    )
+
+    new_status = models.CharField(
+        max_length=10,
+        choices=AttendanceRecord.Status.choices,
+    )
+
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-changed_at"]
+
+    def __str__(self):
+        return (
+            f"{self.attendance_record.student}: "
+            f"{self.previous_status} -> {self.new_status}"
+        )

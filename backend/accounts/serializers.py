@@ -10,6 +10,7 @@ from academics.models import (
 from attendance.models import (
     AttendanceRecord,
     AttendanceRemark,
+    AttendanceStatusChange,
 )
 from payments.models import (
     FeeInvoice,
@@ -55,6 +56,8 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
 
     teacher_name = serializers.SerializerMethodField()
 
+    remark = serializers.SerializerMethodField()
+
     class Meta:
         model = AttendanceRecord
         fields = (
@@ -63,6 +66,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "teacher_name",
             "date",
             "status",
+            "remark",
         )
 
     def get_teacher_name(self, obj):
@@ -70,6 +74,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             obj.teacher.get_full_name()
             or obj.teacher.username
         )
+
+    def get_remark(self, obj):
+        latest = obj.remarks.order_by("-created_at").first()
+        return latest.remark if latest else ""
 
 
 class AttendanceRemarkSerializer(serializers.ModelSerializer):
@@ -307,6 +315,8 @@ class TeacherAttendanceSerializer(
 
     teacher_name = serializers.SerializerMethodField()
 
+    remark = serializers.SerializerMethodField()
+
     class Meta:
         model = AttendanceRecord
         fields = (
@@ -319,6 +329,7 @@ class TeacherAttendanceSerializer(
             "teacher_name",
             "date",
             "status",
+            "remark",
             "created_at",
             "updated_at",
         )
@@ -338,10 +349,20 @@ class TeacherAttendanceSerializer(
             or obj.teacher.username
         )
 
+    def get_remark(self, obj):
+        latest = obj.remarks.order_by("-created_at").first()
+        return latest.remark if latest else ""
+
 
 class TeacherAttendanceCreateSerializer(
     serializers.ModelSerializer
 ):
+    remark = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+    )
+
     class Meta:
         model = AttendanceRecord
         fields = (
@@ -350,7 +371,15 @@ class TeacherAttendanceCreateSerializer(
             "subject",
             "date",
             "status",
+            "remark",
         )
+        # DRF auto-generates a UniqueTogetherValidator from the model's
+        # UniqueConstraint on (student, class_room, subject, date), and
+        # Meta.validators run before this serializer's own validate()
+        # - which would reject every resubmission outright before the
+        # "this is a correction, not a duplicate" logic below ever got
+        # a chance to run. That check is handled explicitly instead.
+        validators = []
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -456,45 +485,86 @@ class TeacherAttendanceCreateSerializer(
             )
 
         # -------------------------------------------------
-        # Prevent duplicate attendance for the same
-        # student/class/subject/date.
+        # An attendance record already exists for this
+        # student/class/subject/date: this is a correction
+        # (e.g. present -> absent), not a duplicate - allowed,
+        # as long as it's the same teacher editing their own
+        # earlier entry. A record marked by someone else is
+        # left alone rather than silently overwritten.
         # -------------------------------------------------
 
-        duplicate_exists = (
+        existing = (
             AttendanceRecord.objects.filter(
                 student=student,
                 class_room=class_room,
                 subject=subject,
                 date=attrs["date"],
-            ).exists()
+            ).first()
         )
 
-        if duplicate_exists:
+        if existing and existing.teacher_id != teacher.id:
             raise serializers.ValidationError(
                 {
                     "date": (
-                        "Attendance already exists "
-                        "for this student, class, "
-                        "subject, and date."
+                        "This attendance was already "
+                        "marked by another teacher."
                     )
                 }
             )
+
+        self._existing_instance = existing
 
         return attrs
 
     def create(self, validated_data):
         request = self.context["request"]
+        remark_text = validated_data.pop("remark", "").strip()
+        existing = getattr(self, "_existing_instance", None)
 
-        attendance = AttendanceRecord(
-            tenant=request.user.tenant,
-            teacher=request.user,
-            **validated_data,
-        )
+        if existing:
+            previous_status = existing.status
+            existing.status = validated_data["status"]
+            existing.full_clean()
+            existing.save(update_fields=["status", "updated_at"])
+            attendance = existing
 
-        # Run the model-level validation as well.
-        attendance.full_clean()
+            if previous_status != attendance.status:
+                AttendanceStatusChange.objects.create(
+                    tenant=request.user.tenant,
+                    attendance_record=attendance,
+                    teacher=request.user,
+                    previous_status=previous_status,
+                    new_status=attendance.status,
+                )
+        else:
+            attendance = AttendanceRecord(
+                tenant=request.user.tenant,
+                teacher=request.user,
+                **validated_data,
+            )
 
-        attendance.save()
+            # Run the model-level validation as well.
+            attendance.full_clean()
+
+            attendance.save()
+
+        if remark_text:
+            existing_remark = (
+                AttendanceRemark.objects
+                .filter(attendance_record=attendance, teacher=request.user)
+                .order_by("-created_at")
+                .first()
+            )
+
+            if existing_remark:
+                existing_remark.remark = remark_text
+                existing_remark.save(update_fields=["remark", "updated_at"])
+            else:
+                AttendanceRemark.objects.create(
+                    attendance_record=attendance,
+                    teacher=request.user,
+                    remark=remark_text,
+                )
 
         return attendance
 
@@ -576,3 +646,35 @@ class TeacherAttendanceRemarkSerializer(
         remark.save()
 
         return remark
+
+
+class TeacherAttendanceStatusChangeSerializer(
+    serializers.ModelSerializer
+):
+    student_name = serializers.SerializerMethodField()
+
+    subject_name = serializers.CharField(
+        source="attendance_record.subject.name",
+        read_only=True,
+    )
+
+    date = serializers.DateField(
+        source="attendance_record.date",
+        read_only=True,
+    )
+
+    class Meta:
+        model = AttendanceStatusChange
+        fields = (
+            "id",
+            "student_name",
+            "subject_name",
+            "date",
+            "previous_status",
+            "new_status",
+            "changed_at",
+        )
+
+    def get_student_name(self, obj):
+        student = obj.attendance_record.student
+        return f"{student.first_name} {student.last_name}".strip()

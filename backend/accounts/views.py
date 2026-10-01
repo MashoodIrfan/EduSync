@@ -5,10 +5,15 @@ from rest_framework import generics, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from academics.models import Student, TeacherAssignment
-from attendance.models import AttendanceRecord, AttendanceRemark
+from attendance.models import (
+    AttendanceRecord,
+    AttendanceRemark,
+    AttendanceStatusChange,
+)
 from payments.models import FeeInvoice, PaymentTransaction
 from payments.gateways import get_payment_gateway
 
@@ -24,6 +29,7 @@ from .serializers import (
     TeacherAttendanceCreateSerializer,
     TeacherAttendanceRemarkSerializer,
     TeacherAttendanceSerializer,
+    TeacherAttendanceStatusChangeSerializer,
     TeacherStudentSerializer,
 )
 
@@ -408,13 +414,15 @@ class TeacherAttendanceView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        was_update = serializer._existing_instance is not None
+
         attendance = serializer.save()
 
         output_serializer = TeacherAttendanceSerializer(attendance)
 
         return Response(
             output_serializer.data,
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_200_OK if was_update else status.HTTP_201_CREATED,
         )
 
 
@@ -446,4 +454,24 @@ class TeacherAttendanceRemarkView(APIView):
                 "created_at": remark.created_at,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class TeacherAttendanceStatusChangeListView(generics.ListAPIView):
+    permission_classes = [
+        IsAuthenticated,
+        IsTeacher,
+    ]
+
+    serializer_class = TeacherAttendanceStatusChangeSerializer
+
+    def get_queryset(self):
+        return (
+            AttendanceStatusChange.objects
+            .filter(
+                teacher=self.request.user,
+                tenant=self.request.user.tenant,
+            )
+            .select_related("attendance_record", "attendance_record__student", "attendance_record__subject")
+            .order_by("-changed_at")[:20]
         )

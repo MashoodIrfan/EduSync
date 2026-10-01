@@ -4,6 +4,7 @@ export interface DecodedToken {
   user_id: number
   role: Role
   tenant_id: number | null
+  tenant_name: string | null
   username: string
   first_name: string
   last_name: string
@@ -14,6 +15,7 @@ export interface AuthUser {
   id: number
   role: Role
   tenantId: number | null
+  tenantName: string | null
   username: string
   firstName: string
   lastName: string
@@ -32,6 +34,7 @@ export interface AttendanceRecordInfo {
   teacher_name: string
   date: string
   status: "PRESENT" | "ABSENT" | "LATE"
+  remark: string
 }
 
 export interface AttendanceRemarkInfo {
@@ -95,8 +98,19 @@ export interface TeacherAttendanceInfo {
   teacher_name: string
   date: string
   status: "PRESENT" | "ABSENT" | "LATE"
+  remark: string
   created_at: string
   updated_at: string
+}
+
+export interface AttendanceStatusChangeInfo {
+  id: number
+  student_name: string
+  subject_name: string
+  date: string
+  previous_status: "PRESENT" | "ABSENT" | "LATE"
+  new_status: "PRESENT" | "ABSENT" | "LATE"
+  changed_at: string
 }
 
 export interface SchoolAdminClassInfo {

@@ -1,14 +1,11 @@
-import { useState } from "react"
-
-import { useAddAttendanceRemark, useTeacherAttendance } from "../../api/teacher"
-import { Badge, Button, Card, ErrorBanner, Modal, PageTitle, Spinner, extractErrorMessage } from "../../components/ui"
-import type { TeacherAttendanceInfo } from "../../types"
+import { useTeacherAttendance } from "../../api/teacher"
+import { Badge, Card, LoadError, PageTitle, Spinner } from "../../components/ui"
 
 export function TeacherAttendanceHistory() {
-  const { data, isLoading } = useTeacherAttendance()
-  const [remarkTarget, setRemarkTarget] = useState<TeacherAttendanceInfo | null>(null)
+  const { data, isLoading, isError, refetch } = useTeacherAttendance()
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
@@ -22,7 +19,7 @@ export function TeacherAttendanceHistory() {
               <th className="px-4 py-2">Class</th>
               <th className="px-4 py-2">Subject</th>
               <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2"></th>
+              <th className="px-4 py-2">Remark</th>
             </tr>
           </thead>
           <tbody>
@@ -37,11 +34,7 @@ export function TeacherAttendanceHistory() {
                 <td className="px-4 py-2">
                   <Badge status={record.status} />
                 </td>
-                <td className="px-4 py-2 text-right">
-                  <Button variant="secondary" onClick={() => setRemarkTarget(record)}>
-                    Add Remark
-                  </Button>
-                </td>
+                <td className="px-4 py-2 text-gray-500">{record.remark || "—"}</td>
               </tr>
             ))}
             {data?.length === 0 && (
@@ -54,48 +47,6 @@ export function TeacherAttendanceHistory() {
           </tbody>
         </table>
       </Card>
-
-      {remarkTarget && (
-        <RemarkModal record={remarkTarget} onClose={() => setRemarkTarget(null)} />
-      )}
     </div>
-  )
-}
-
-function RemarkModal({ record, onClose }: { record: TeacherAttendanceInfo; onClose: () => void }) {
-  const addRemark = useAddAttendanceRemark()
-  const [remark, setRemark] = useState("")
-  const [error, setError] = useState("")
-
-  async function handleSubmit() {
-    setError("")
-
-    try {
-      await addRemark.mutateAsync({ attendanceId: record.id, remark })
-      onClose()
-    } catch (err) {
-      setError(extractErrorMessage(err))
-    }
-  }
-
-  return (
-    <Modal title={`Remark for ${record.student_name}`} onClose={onClose}>
-      <ErrorBanner message={error} />
-      <textarea
-        value={remark}
-        onChange={(event) => setRemark(event.target.value)}
-        rows={4}
-        className="mb-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        placeholder="Write a remark..."
-      />
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} disabled={addRemark.isPending || !remark.trim()}>
-          Save Remark
-        </Button>
-      </div>
-    </Modal>
   )
 }

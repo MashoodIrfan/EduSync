@@ -71,28 +71,11 @@ describe("syncEngine", () => {
     expect(item?.syncStatus).toBe("pending")
   })
 
-  it("detects a conflict from the serializer's own explicit duplicate error", async () => {
-    post.mockRejectedValueOnce({
-      response: { status: 400, data: { date: "Attendance already exists for this date." } },
-    })
-    const id = await enqueueAttendance(baseInput)
-
-    await trySyncAll(1)
-
-    const item = await offlineDB.attendanceQueue.get(id)
-    expect(item?.syncStatus).toBe("conflict")
-    expect(item?.syncError).toContain("already exists")
-  })
-
-  it("detects a conflict from DRF's auto-generated UniqueTogetherValidator error", async () => {
+  it("detects a conflict when the record belongs to a different teacher", async () => {
     post.mockRejectedValueOnce({
       response: {
         status: 400,
-        data: {
-          non_field_errors: [
-            "The fields student, class_room, subject, date must make a unique set.",
-          ],
-        },
+        data: { date: "This attendance was already marked by another teacher." },
       },
     })
     const id = await enqueueAttendance(baseInput)
@@ -101,6 +84,20 @@ describe("syncEngine", () => {
 
     const item = await offlineDB.attendanceQueue.get(id)
     expect(item?.syncStatus).toBe("conflict")
+    expect(item?.syncError).toContain("another teacher")
+  })
+
+  it("resubmitting your own earlier entry is a normal update, not a conflict", async () => {
+    // The backend now treats re-marking your own attendance (e.g.
+    // present -> absent) as an update, returning 200 rather than
+    // rejecting it as a duplicate.
+    post.mockResolvedValueOnce({ data: { id: 1 } })
+    const id = await enqueueAttendance(baseInput)
+
+    await trySyncAll(1)
+
+    const item = await offlineDB.attendanceQueue.get(id)
+    expect(item?.syncStatus).toBe("synced")
   })
 
   it("marks a non-conflict server rejection as failed, not conflict", async () => {

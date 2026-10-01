@@ -4,6 +4,7 @@ from django.urls import path
 from .views import (
     TeacherAssignmentsView,
     TeacherAttendanceRemarkView,
+    TeacherAttendanceStatusChangeListView,
     TeacherAttendanceView,
     TeacherClassStudentsView,
 )
@@ -32,5 +33,11 @@ urlpatterns = [
         "attendance/<int:attendance_id>/remark/",
         TeacherAttendanceRemarkView.as_view(),
         name="teacher-attendance-remark",
+    ),
+
+    path(
+        "attendance/status-changes/",
+        TeacherAttendanceStatusChangeListView.as_view(),
+        name="teacher-attendance-status-changes",
     ),
 ]

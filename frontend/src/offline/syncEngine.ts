@@ -13,6 +13,7 @@ interface EnqueueInput {
   subjectLabel: string
   date: string
   status: AttendanceStatus
+  remark?: string
 }
 
 export async function enqueueAttendance(input: EnqueueInput): Promise<number> {
@@ -33,16 +34,12 @@ function extractSyncError(error: unknown): { message: string; isConflict: boolea
       const value = firstKey ? (data as Record<string, unknown>)[firstKey] : undefined
       const text = Array.isArray(value) ? value.join(" ") : String(value ?? "")
 
-      // Two different validators can reject a duplicate: the
-      // serializer's own explicit check (key "date", "already
-      // exists") and DRF's auto-generated UniqueTogetherValidator
-      // from the model's UniqueConstraint (key "non_field_errors",
-      // "must make a unique set") — the latter runs first in
-      // practice, since Meta.validators run before validate().
+      // Re-marking your own earlier entry (e.g. present -> absent) is
+      // a normal update now, not a conflict — the backend only still
+      // rejects this when the existing record belongs to a *different*
+      // teacher, which is the one real conflict case left.
       const lowerText = text.toLowerCase()
-      const isConflict =
-        (firstKey === "date" && lowerText.includes("already exists")) ||
-        (firstKey === "non_field_errors" && lowerText.includes("must make a unique set"))
+      const isConflict = firstKey === "date" && lowerText.includes("marked by another teacher")
 
       return { message: text || "This attendance entry was rejected.", isConflict }
     }
@@ -61,6 +58,7 @@ async function syncOne(item: QueuedAttendance): Promise<void> {
       subject: item.subject,
       date: item.date,
       status: item.status,
+      remark: item.remark ?? "",
     })
 
     await offlineDB.attendanceQueue.update(item.id!, {
