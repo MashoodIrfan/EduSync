@@ -16,6 +16,24 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Baked in at build time rather than left for docker-entrypoint.sh to
+# redo on every container start — collectstatic only touches the
+# filesystem (no live DB needed), so re-running it on every cold
+# start was pure wasted time sitting in front of the port ever
+# opening, which is exactly the window a platform's proxy sees as a
+# 502 while the container wakes up. The dummy env values below exist
+# only for this one build step; Render's real runtime env vars
+# (DEBUG=False, real SECRET_KEY, etc.) fully override them once the
+# container actually starts.
+RUN DEBUG=True \
+    SECRET_KEY=build-time-only \
+    POSTGRES_DB=build \
+    POSTGRES_USER=build \
+    POSTGRES_PASSWORD=build \
+    POSTGRES_HOST=localhost \
+    POSTGRES_PORT=5432 \
+    python manage.py collectstatic --noinput
+
 RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8000
