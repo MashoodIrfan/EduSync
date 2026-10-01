@@ -5,7 +5,11 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from academics.models import Class, Student, Subject, TeacherAssignment
-from attendance.models import AttendanceRecord, AttendanceRemark
+from attendance.models import (
+    AttendanceRecord,
+    AttendanceRemark,
+    AttendanceStatusChange,
+)
 from payments.models import FeeInvoice
 from tenants.models import Tenant
 from tenants.test_utils import RLSTestCase
@@ -210,7 +214,9 @@ class TeacherAPITests(BaseMultiTenantTestCase):
             AttendanceRecord.objects.count(), 0
         )
 
-    def test_duplicate_attendance_rejected(self):
+    def test_resubmitting_same_status_updates_without_logging_a_change(
+        self,
+    ):
         self.authenticate_as(self.teacher_a)
 
         payload = {
@@ -232,7 +238,176 @@ class TeacherAPITests(BaseMultiTenantTestCase):
             first.status_code, status.HTTP_201_CREATED
         )
         self.assertEqual(
-            second.status_code, status.HTTP_400_BAD_REQUEST
+            second.status_code, status.HTTP_200_OK
+        )
+        self.assertEqual(
+            AttendanceRecord.objects.count(), 1
+        )
+        self.assertEqual(
+            AttendanceStatusChange.objects.count(), 0
+        )
+
+    def test_resubmitting_a_different_status_updates_and_logs_the_change(
+        self,
+    ):
+        self.authenticate_as(self.teacher_a)
+
+        first = self.client.post(
+            "/api/teacher/attendance/",
+            data={
+                "student": self.student_a.id,
+                "class_room": self.class_a.id,
+                "subject": self.subject_a.id,
+                "date": "2026-09-20",
+                "status": "PRESENT",
+            },
+        )
+        second = self.client.post(
+            "/api/teacher/attendance/",
+            data={
+                "student": self.student_a.id,
+                "class_room": self.class_a.id,
+                "subject": self.subject_a.id,
+                "date": "2026-09-20",
+                "status": "ABSENT",
+            },
+        )
+
+        self.assertEqual(
+            first.status_code, status.HTTP_201_CREATED
+        )
+        self.assertEqual(
+            second.status_code, status.HTTP_200_OK
+        )
+
+        record = AttendanceRecord.objects.get(
+            id=first.data["id"]
+        )
+        self.assertEqual(
+            record.status, "ABSENT"
+        )
+        self.assertEqual(
+            AttendanceRecord.objects.count(), 1
+        )
+
+        change = AttendanceStatusChange.objects.get()
+        self.assertEqual(
+            change.previous_status, "PRESENT"
+        )
+        self.assertEqual(
+            change.new_status, "ABSENT"
+        )
+        self.assertEqual(
+            change.teacher_id, self.teacher_a.id
+        )
+
+    def test_another_teacher_cannot_overwrite_existing_attendance(self):
+        AttendanceRecord.objects.create(
+            tenant=self.tenant_a,
+            student=self.student_a,
+            class_room=self.class_a,
+            subject=self.subject_a,
+            teacher=self.teacher_a,
+            date="2026-09-20",
+            status=AttendanceRecord.Status.PRESENT,
+        )
+
+        other_teacher = User.objects.create_user(
+            username="other_teacher_a",
+            password="TestPassword123!",
+            role="TEACHER",
+            tenant=self.tenant_a,
+        )
+        TeacherAssignment.objects.create(
+            tenant=self.tenant_a,
+            teacher=other_teacher,
+            class_room=self.class_a,
+            subject=self.subject_a,
+        )
+
+        self.authenticate_as(other_teacher)
+
+        response = self.client.post(
+            "/api/teacher/attendance/",
+            data={
+                "student": self.student_a.id,
+                "class_room": self.class_a.id,
+                "subject": self.subject_a.id,
+                "date": "2026-09-20",
+                "status": "ABSENT",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+        self.assertEqual(
+            AttendanceRecord.objects.get().status, "PRESENT"
+        )
+
+    def test_remark_saved_alongside_status_in_one_request(self):
+        self.authenticate_as(self.teacher_a)
+
+        response = self.client.post(
+            "/api/teacher/attendance/",
+            data={
+                "student": self.student_a.id,
+                "class_room": self.class_a.id,
+                "subject": self.subject_a.id,
+                "date": "2026-09-20",
+                "status": "PRESENT",
+                "remark": "Great participation today.",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_201_CREATED
+        )
+        self.assertEqual(
+            response.data["remark"], "Great participation today."
+        )
+        self.assertEqual(
+            AttendanceRemark.objects.count(), 1
+        )
+
+    def test_status_change_list_scoped_to_own_teacher_and_tenant(self):
+        self.authenticate_as(self.teacher_a)
+
+        self.client.post(
+            "/api/teacher/attendance/",
+            data={
+                "student": self.student_a.id,
+                "class_room": self.class_a.id,
+                "subject": self.subject_a.id,
+                "date": "2026-09-20",
+                "status": "PRESENT",
+            },
+        )
+        self.client.post(
+            "/api/teacher/attendance/",
+            data={
+                "student": self.student_a.id,
+                "class_room": self.class_a.id,
+                "subject": self.subject_a.id,
+                "date": "2026-09-20",
+                "status": "LATE",
+            },
+        )
+
+        response = self.client.get(
+            "/api/teacher/attendance/status-changes/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(
+            response.data[0]["previous_status"], "PRESENT"
+        )
+        self.assertEqual(
+            response.data[0]["new_status"], "LATE"
+        )
+        self.assertEqual(
+            response.data[0]["student_name"], "Ahmed Khan"
         )
 
     def test_teacher_can_add_remark_to_own_attendance(self):
@@ -351,6 +526,176 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
 
         self.assertEqual(
             response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+
+    def test_school_admin_can_edit_class(self):
+        self.authenticate_as(self.school_admin_a)
+
+        response = self.client.patch(
+            f"/api/school-admin/classes/{self.class_a.id}/",
+            data={"name": "Grade 9"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.class_a.refresh_from_db()
+        self.assertEqual(self.class_a.name, "Grade 9")
+
+    def test_school_admin_can_delete_empty_class(self):
+        self.authenticate_as(self.school_admin_a)
+
+        empty_class = Class.objects.create(
+            tenant=self.tenant_a, name="Grade 10", section="C"
+        )
+
+        response = self.client.delete(
+            f"/api/school-admin/classes/{empty_class.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_204_NO_CONTENT
+        )
+        self.assertFalse(
+            Class.objects.filter(id=empty_class.id).exists()
+        )
+
+    def test_school_admin_cannot_delete_class_with_students(self):
+        self.authenticate_as(self.school_admin_a)
+
+        # self.class_a already has self.student_a enrolled and
+        # self.assignment_a teaching it.
+        response = self.client.delete(
+            f"/api/school-admin/classes/{self.class_a.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+        self.assertTrue(
+            Class.objects.filter(id=self.class_a.id).exists()
+        )
+
+    def test_school_admin_can_edit_subject(self):
+        self.authenticate_as(self.school_admin_a)
+
+        response = self.client.patch(
+            f"/api/school-admin/subjects/{self.subject_a.id}/",
+            data={"name": "Advanced Mathematics"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.subject_a.refresh_from_db()
+        self.assertEqual(self.subject_a.name, "Advanced Mathematics")
+
+    def test_school_admin_can_delete_empty_subject(self):
+        self.authenticate_as(self.school_admin_a)
+
+        empty_subject = Subject.objects.create(
+            tenant=self.tenant_a, name="Art", code="ART"
+        )
+
+        response = self.client.delete(
+            f"/api/school-admin/subjects/{empty_subject.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_204_NO_CONTENT
+        )
+
+    def test_school_admin_cannot_delete_subject_with_assignments(self):
+        self.authenticate_as(self.school_admin_a)
+
+        # self.subject_a already has self.assignment_a teaching it.
+        response = self.client.delete(
+            f"/api/school-admin/subjects/{self.subject_a.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+        self.assertTrue(
+            Subject.objects.filter(id=self.subject_a.id).exists()
+        )
+
+    def test_school_admin_can_edit_student(self):
+        self.authenticate_as(self.school_admin_a)
+
+        response = self.client.patch(
+            f"/api/school-admin/students/{self.student_a.id}/",
+            data={"first_name": "Ahmad"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.student_a.refresh_from_db()
+        self.assertEqual(self.student_a.first_name, "Ahmad")
+
+    def test_school_admin_can_delete_student_with_no_activity(self):
+        self.authenticate_as(self.school_admin_a)
+
+        fresh_student = Student.objects.create(
+            tenant=self.tenant_a,
+            student_id="STU099",
+            first_name="New",
+            last_name="Student",
+            date_of_birth=date(2012, 1, 1),
+            class_room=self.class_a,
+        )
+
+        response = self.client.delete(
+            f"/api/school-admin/students/{fresh_student.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_204_NO_CONTENT
+        )
+
+    def test_school_admin_cannot_delete_student_with_attendance(self):
+        self.authenticate_as(self.school_admin_a)
+
+        AttendanceRecord.objects.create(
+            tenant=self.tenant_a,
+            student=self.student_a,
+            class_room=self.class_a,
+            subject=self.subject_a,
+            teacher=self.teacher_a,
+            date="2026-09-20",
+            status=AttendanceRecord.Status.PRESENT,
+        )
+
+        response = self.client.delete(
+            f"/api/school-admin/students/{self.student_a.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+        self.assertTrue(
+            Student.objects.filter(id=self.student_a.id).exists()
+        )
+
+    def test_school_admin_cannot_delete_student_with_parent_account(
+        self,
+    ):
+        self.authenticate_as(self.school_admin_a)
+
+        parent = User.objects.create_user(
+            username="parent_for_delete_test",
+            password="Pass1234!",
+            role=User.Role.PARENT,
+            tenant=self.tenant_a,
+        )
+        ParentProfile.objects.create(
+            user=parent, student=self.student_a
+        )
+
+        response = self.client.delete(
+            f"/api/school-admin/students/{self.student_a.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+        self.assertTrue(
+            Student.objects.filter(id=self.student_a.id).exists()
         )
 
     def test_school_admin_can_create_teacher_and_teacher_can_login(
@@ -571,6 +916,7 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
             data={
                 "phone": "0311-0000000",
                 "slug": "hacked-slug",
+                "name": "Hacked School Name",
             },
         )
 
@@ -579,8 +925,10 @@ class SchoolAdminAPITests(BaseMultiTenantTestCase):
         )
         self.tenant_a.refresh_from_db()
         self.assertEqual(self.tenant_a.phone, "0311-0000000")
-        # slug is read-only; the attempted change is ignored.
+        # slug and name are read-only here; only Platform Admin can
+        # change a school's name. Attempted changes are ignored.
         self.assertEqual(self.tenant_a.slug, "abc-school")
+        self.assertEqual(self.tenant_a.name, "ABC School")
 
 
 class PlatformAdminAPITests(BaseMultiTenantTestCase):
@@ -626,11 +974,15 @@ class PlatformAdminAPITests(BaseMultiTenantTestCase):
     def test_platform_admin_can_create_school_admin_for_tenant(self):
         self.authenticate_as(self.platform_admin)
 
+        tenant_c = Tenant.objects.create(
+            name="Riverside Academy", slug="riverside-academy"
+        )
+
         response = self.client.post(
-            f"/api/platform-admin/tenants/{self.tenant_b.id}/"
+            f"/api/platform-admin/tenants/{tenant_c.id}/"
             "school-admins/",
             data={
-                "username": "new_admin_b",
+                "username": "new_admin_c",
                 "first_name": "Nadia",
                 "last_name": "Sheikh",
             },
@@ -643,18 +995,83 @@ class PlatformAdminAPITests(BaseMultiTenantTestCase):
         self.assertTrue(temp_password)
 
         created_admin = User.objects.get(
-            username="new_admin_b"
+            username="new_admin_c"
         )
         self.assertEqual(created_admin.role, User.Role.SCHOOL_ADMIN)
-        self.assertEqual(created_admin.tenant_id, self.tenant_b.id)
+        self.assertEqual(created_admin.tenant_id, tenant_c.id)
 
         login_response = self.client.post(
             "/api/token/",
             data={
-                "username": "new_admin_b",
+                "username": "new_admin_c",
                 "password": temp_password,
             },
         )
         self.assertEqual(
             login_response.status_code, status.HTTP_200_OK
+        )
+
+    def test_platform_admin_cannot_create_second_admin_for_tenant(self):
+        self.authenticate_as(self.platform_admin)
+
+        response = self.client.post(
+            f"/api/platform-admin/tenants/{self.tenant_b.id}/"
+            "school-admins/",
+            data={
+                "username": "second_admin_b",
+                "first_name": "Second",
+                "last_name": "Admin",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_400_BAD_REQUEST
+        )
+        self.assertFalse(
+            User.objects.filter(username="second_admin_b").exists()
+        )
+
+    def test_platform_admin_can_add_admin_after_existing_one_deactivated(self):
+        self.authenticate_as(self.platform_admin)
+
+        self.school_admin_b.is_active = False
+        self.school_admin_b.save()
+
+        response = self.client.post(
+            f"/api/platform-admin/tenants/{self.tenant_b.id}/"
+            "school-admins/",
+            data={
+                "username": "replacement_admin_b",
+                "first_name": "Replacement",
+                "last_name": "Admin",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_201_CREATED
+        )
+
+    def test_platform_admin_can_add_admin_after_existing_one_removed(self):
+        self.authenticate_as(self.platform_admin)
+
+        response = self.client.delete(
+            f"/api/platform-admin/tenants/{self.tenant_b.id}/"
+            f"school-admins/{self.school_admin_b.id}/"
+        )
+        self.assertEqual(
+            response.status_code, status.HTTP_204_NO_CONTENT
+        )
+
+        response = self.client.post(
+            f"/api/platform-admin/tenants/{self.tenant_b.id}/"
+            "school-admins/",
+            data={
+                "username": "replacement_admin_b",
+                "first_name": "Replacement",
+                "last_name": "Admin",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code, status.HTTP_201_CREATED
         )
