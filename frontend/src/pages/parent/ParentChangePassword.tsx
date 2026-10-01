@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { useParentChangePassword } from "../../api/parent"
-import { Button, Card, ErrorBanner, Field, Input, PageTitle, SuccessBanner, extractErrorMessage } from "../../components/ui"
+import { Button, Card, ErrorBanner, Field, PageTitle, PasswordInput, SuccessBanner, extractErrorMessage } from "../../components/ui"
 
 export function ParentChangePassword() {
   const changePassword = useParentChangePassword()
@@ -49,8 +49,7 @@ export function ParentChangePassword() {
           <SuccessBanner message={success} />
 
           <Field label="Current Password">
-            <Input
-              type="password"
+            <PasswordInput
               value={oldPassword}
               onChange={(event) => setOldPassword(event.target.value)}
               required
@@ -58,8 +57,7 @@ export function ParentChangePassword() {
           </Field>
 
           <Field label="New Password">
-            <Input
-              type="password"
+            <PasswordInput
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               required
@@ -67,8 +65,7 @@ export function ParentChangePassword() {
           </Field>
 
           <Field label="Confirm New Password">
-            <Input
-              type="password"
+            <PasswordInput
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               required

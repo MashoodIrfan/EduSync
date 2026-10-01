@@ -1,4 +1,4 @@
-import { CalendarCheck, CheckCircle2, GraduationCap, Lock, ShieldCheck, TrendingUp, User, Wallet } from "lucide-react"
+import { CalendarCheck, CheckCircle2, Eye, EyeOff, GraduationCap, Lock, ShieldCheck, TrendingUp, User, Wallet } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
 
@@ -25,6 +25,7 @@ export function LoginPage() {
 
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -48,8 +49,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-indigo-500 p-12 text-white lg:flex">
+    <div className="flex min-h-screen bg-stone-50">
+      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 p-12 text-white lg:flex">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
@@ -59,17 +60,11 @@ export function LoginPage() {
           }}
         />
 
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-              <Logo size={28} />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">EduSync</span>
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+            <Logo size={28} />
           </div>
-
-          <span className="-rotate-3 rounded-full bg-white/15 px-3 py-1 text-[11px] font-medium tracking-wide text-white backdrop-blur">
-            ✦ Built for real schools
-          </span>
+          <span className="text-lg font-semibold tracking-tight">EduSync</span>
         </div>
 
         <div className="relative flex flex-1 items-center justify-center py-8">
@@ -81,7 +76,7 @@ export function LoginPage() {
 
             <div className="absolute left-1/2 top-0 w-48 -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-gray-900 shadow-xl backdrop-blur">
               <div className="mb-2 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                   <TrendingUp size={16} />
                 </span>
                 <span className="text-xs font-medium text-gray-500">Attendance Rate</span>
@@ -101,7 +96,7 @@ export function LoginPage() {
 
             <div className="absolute bottom-10 right-0 w-40 rotate-6 rounded-2xl bg-white/95 p-4 text-gray-900 shadow-xl backdrop-blur">
               <div className="mb-2 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-terracotta-50 text-terracotta-600">
                   <GraduationCap size={16} />
                 </span>
                 <span className="text-xs font-medium text-gray-500">Schools Onboard</span>
@@ -115,14 +110,14 @@ export function LoginPage() {
           <h1 className="mb-4 text-3xl font-semibold leading-tight tracking-tight">
             School operations, run from one place.
           </h1>
-          <p className="mb-8 text-indigo-100">
+          <p className="mb-8 text-brand-100">
             Attendance, remarks, fees, and payments — one platform for admins, teachers, and
             parents, with every school's data kept strictly separate.
           </p>
 
           <ul className="flex flex-wrap gap-x-6 gap-y-3">
             {FEATURES.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-2 text-xs text-indigo-50">
+              <li key={text} className="flex items-center gap-2 text-xs text-brand-50">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15">
                   <Icon size={13} strokeWidth={2.25} />
                 </span>
@@ -132,7 +127,7 @@ export function LoginPage() {
           </ul>
         </div>
 
-        <p className="relative mt-8 text-xs text-indigo-200">© {new Date().getFullYear()} EduSync</p>
+        <p className="relative mt-8 text-xs text-brand-200">© {new Date().getFullYear()} EduSync</p>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
@@ -157,7 +152,7 @@ export function LoginPage() {
                   onChange={(event) => setUsername(event.target.value)}
                   autoComplete="username"
                   required
-                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </div>
             </div>
@@ -167,19 +162,28 @@ export function LoginPage() {
               <div className="relative">
                 <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="current-password"
                   required
-                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-10 text-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full !py-2.5 shadow-sm shadow-indigo-200"
+              className="w-full !py-2.5 shadow-sm shadow-brand-200"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Signing in..." : "Sign in"}

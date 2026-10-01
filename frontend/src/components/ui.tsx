@@ -1,4 +1,5 @@
-import { Loader2, X } from "lucide-react"
+import { AlertTriangle, Eye, EyeOff, Loader2, X } from "lucide-react"
+import { useState } from "react"
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react"
 
 export function Button({
@@ -9,7 +10,7 @@ export function Button({
   const base =
     "inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
   const variants = {
-    primary: "bg-indigo-600 text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700",
+    primary: "bg-brand-600 text-white shadow-sm shadow-brand-200 hover:bg-brand-700",
     secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200",
     danger: "bg-red-50 text-red-600 hover:bg-red-100",
   }
@@ -21,8 +22,31 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 ${props.className ?? ""}`}
     />
+  )
+}
+
+export function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <div className="relative">
+      <input
+        {...props}
+        type={visible ? "text" : "password"}
+        className={`w-full rounded-lg border border-gray-300 py-2 pl-3 pr-10 text-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 ${props.className ?? ""}`}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+        tabIndex={-1}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600"
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
   )
 }
 
@@ -30,7 +54,7 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 ${props.className ?? ""}`}
     />
   )
 }
@@ -46,7 +70,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-gray-200 bg-white p-5 shadow-sm shadow-gray-100 ${className}`}>
+    <div className={`rounded-xl border border-stone-200 bg-white p-5 shadow-sm shadow-stone-100 ${className}`}>
       {children}
     </div>
   )
@@ -70,7 +94,7 @@ export function Badge({ status }: { status: string }) {
     PENDING: "bg-amber-50 text-amber-700 ring-amber-600/20",
     VERIFICATION_REQUIRED: "bg-amber-50 text-amber-700 ring-amber-600/20",
     INITIATED: "bg-blue-50 text-blue-700 ring-blue-600/20",
-    ABSENT: "bg-red-50 text-red-700 ring-red-600/20",
+    ABSENT: "bg-terracotta-50 text-terracotta-700 ring-terracotta-600/20",
     OVERDUE: "bg-red-50 text-red-700 ring-red-600/20",
     FAILED: "bg-red-50 text-red-700 ring-red-600/20",
     CANCELLED: "bg-gray-100 text-gray-600 ring-gray-500/20",
@@ -99,6 +123,26 @@ export function Spinner() {
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return <div className="px-4 py-10 text-center text-sm text-gray-400">{children}</div>
+}
+
+export function LoadError({
+  message = "Couldn't load this page. Check your connection and try again.",
+  onRetry,
+}: {
+  message?: string
+  onRetry?: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-14 text-center">
+      <AlertTriangle size={20} className="text-red-500" />
+      <p className="max-w-sm text-sm text-red-700">{message}</p>
+      {onRetry && (
+        <Button variant="secondary" onClick={onRetry}>
+          Try again
+        </Button>
+      )}
+    </div>
+  )
 }
 
 export function ErrorBanner({ message }: { message: string }) {
@@ -155,6 +199,15 @@ export function extractErrorMessage(error: unknown): string {
     const data = response?.data
 
     if (typeof data === "string") return data
+
+    // DRF serializes a bare `raise ValidationError("message")` as a
+    // top-level JSON array, not an object — e.g. ["message"]. Handle
+    // that before the generic object branch below, which would
+    // otherwise treat the array's "0" index as if it were a field
+    // name and prefix the message with a meaningless "0: ".
+    if (Array.isArray(data) && data.length > 0) {
+      return String(data[0])
+    }
 
     if (data && typeof data === "object") {
       if ("detail" in data && typeof (data as { detail?: unknown }).detail === "string") {

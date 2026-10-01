@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from "react"
 
 import { useCreateTeacher, useTeachers, useToggleTeacherActive } from "../../api/schoolAdmin"
-import { Button, Card, ErrorBanner, Field, Input, Modal, PageTitle, Spinner, SuccessBanner, extractErrorMessage } from "../../components/ui"
+import { Button, Card, ErrorBanner, Field, Input, LoadError, Modal, PageTitle, PasswordInput, Spinner, SuccessBanner, extractErrorMessage } from "../../components/ui"
 
 export function SchoolAdminTeachers() {
-  const { data, isLoading } = useTeachers()
+  const { data, isLoading, isError, refetch } = useTeachers()
   const toggleActive = useToggleTeacherActive()
   const [showForm, setShowForm] = useState(false)
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
@@ -122,8 +123,7 @@ function CreateTeacherModal({ onClose }: { onClose: () => void }) {
         </Field>
 
         <Field label="Initial Password">
-          <Input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
