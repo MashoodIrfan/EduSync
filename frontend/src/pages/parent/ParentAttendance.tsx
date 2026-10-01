@@ -1,10 +1,17 @@
+import { useState } from "react"
+
 import { useParentAttendance } from "../../api/parent"
-import { Badge, Card, PageTitle, Spinner } from "../../components/ui"
+import { Badge, Card, LoadError, Modal, PageTitle, Spinner } from "../../components/ui"
+import type { AttendanceRecordInfo } from "../../types"
+
+const TRUNCATE_AT = 28
 
 export function ParentAttendance() {
-  const { data, isLoading } = useParentAttendance()
+  const { data, isLoading, isError, refetch } = useParentAttendance()
+  const [openRemark, setOpenRemark] = useState<AttendanceRecordInfo | null>(null)
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
@@ -17,22 +24,44 @@ export function ParentAttendance() {
               <th className="px-4 py-2">Subject</th>
               <th className="px-4 py-2">Teacher</th>
               <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2">Remark</th>
             </tr>
           </thead>
           <tbody>
-            {data?.map((record) => (
-              <tr key={record.id} className="border-b border-gray-100">
-                <td className="px-4 py-2">{record.date}</td>
-                <td className="px-4 py-2">{record.subject_name}</td>
-                <td className="px-4 py-2">{record.teacher_name}</td>
-                <td className="px-4 py-2">
-                  <Badge status={record.status} />
-                </td>
-              </tr>
-            ))}
+            {data?.map((record) => {
+              const remark = record.remark
+              const isLong = remark.length > TRUNCATE_AT
+
+              return (
+                <tr key={record.id} className="border-b border-gray-100">
+                  <td className="px-4 py-2">{record.date}</td>
+                  <td className="px-4 py-2">{record.subject_name}</td>
+                  <td className="px-4 py-2">{record.teacher_name}</td>
+                  <td className="px-4 py-2">
+                    <Badge status={record.status} />
+                  </td>
+                  <td className="px-4 py-2 text-gray-500">
+                    {remark ? (
+                      isLong ? (
+                        <button
+                          onClick={() => setOpenRemark(record)}
+                          className="text-left text-brand-600 underline decoration-dotted underline-offset-2 hover:text-brand-800"
+                        >
+                          {remark.slice(0, TRUNCATE_AT)}…
+                        </button>
+                      ) : (
+                        remark
+                      )
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
             {data?.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-500">
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
                   No attendance records yet.
                 </td>
               </tr>
@@ -40,6 +69,15 @@ export function ParentAttendance() {
           </tbody>
         </table>
       </Card>
+
+      {openRemark && (
+        <Modal
+          title={`${openRemark.subject_name} · ${openRemark.date}`}
+          onClose={() => setOpenRemark(null)}
+        >
+          <p className="text-sm text-gray-700">{openRemark.remark}</p>
+        </Modal>
+      )}
     </div>
   )
 }

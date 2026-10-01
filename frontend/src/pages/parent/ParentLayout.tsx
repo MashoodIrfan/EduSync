@@ -1,14 +1,13 @@
-import { CalendarCheck, CreditCard, KeyRound, LayoutDashboard, MessageSquare, Receipt } from "lucide-react"
+import { CalendarCheck, CreditCard, KeyRound, LayoutDashboard, Receipt } from "lucide-react"
 import { Navigate, useLocation } from "react-router-dom"
 
 import { useParentProfile } from "../../api/parent"
 import { PortalLayout } from "../../components/PortalLayout"
-import { Spinner } from "../../components/ui"
+import { LoadError, Spinner } from "../../components/ui"
 
 const FULL_NAV = [
   { to: "/parent", label: "Overview", end: true, icon: LayoutDashboard },
   { to: "/parent/attendance", label: "Attendance", icon: CalendarCheck },
-  { to: "/parent/remarks", label: "Remarks", icon: MessageSquare },
   { to: "/parent/fees", label: "Fees", icon: Receipt },
   { to: "/parent/payments", label: "Payments", icon: CreditCard },
   { to: "/parent/change-password", label: "Change Password", icon: KeyRound },
@@ -17,11 +16,19 @@ const FULL_NAV = [
 const RESTRICTED_NAV = [{ to: "/parent/change-password", label: "Change Password", icon: KeyRound }]
 
 export function ParentLayout() {
-  const { data: profile, isLoading } = useParentProfile()
+  const { data: profile, isLoading, isError, refetch } = useParentProfile()
   const location = useLocation()
 
   if (isLoading) {
     return <Spinner />
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-stone-50 px-4">
+        <LoadError onRetry={() => refetch()} />
+      </div>
+    )
   }
 
   const mustChangePassword = profile?.must_change_password ?? false

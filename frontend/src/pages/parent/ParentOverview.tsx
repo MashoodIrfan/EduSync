@@ -1,21 +1,46 @@
-import { CalendarCheck, GraduationCap, MessageSquare, Receipt, School } from "lucide-react"
+import { CalendarCheck, GraduationCap, Receipt, School } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import { useAuth } from "../../auth/AuthContext"
-import { useParentAttendance, useParentFees, useParentProfile, useParentRemarks } from "../../api/parent"
-import { Card, Spinner } from "../../components/ui"
-import { DashboardHeader, Pill, RadialProgress, StatCard, TrendChart } from "../../components/widgets"
+import { useParentAttendance, useParentFees, useParentProfile } from "../../api/parent"
+import { Card, LoadError, Spinner } from "../../components/ui"
+import { DashboardHeader, RadialProgress, StatCard, TrendChart } from "../../components/widgets"
 
 const STATUS_VALUE: Record<string, number> = { PRESENT: 100, LATE: 55, ABSENT: 0 }
 
 export function ParentOverview() {
   const { user } = useAuth()
-  const { data: profile, isLoading: profileLoading } = useParentProfile()
-  const { data: attendance, isLoading: attendanceLoading } = useParentAttendance()
-  const { data: fees, isLoading: feesLoading } = useParentFees()
-  const { data: remarks, isLoading: remarksLoading } = useParentRemarks()
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+    refetch: refetchProfile,
+  } = useParentProfile()
+  const {
+    data: attendance,
+    isLoading: attendanceLoading,
+    isError: attendanceError,
+    refetch: refetchAttendance,
+  } = useParentAttendance()
+  const {
+    data: fees,
+    isLoading: feesLoading,
+    isError: feesError,
+    refetch: refetchFees,
+  } = useParentFees()
 
-  if (profileLoading || attendanceLoading || feesLoading || remarksLoading) return <Spinner />
+  if (profileLoading || attendanceLoading || feesLoading) return <Spinner />
+  if (profileError || attendanceError || feesError) {
+    return (
+      <LoadError
+        onRetry={() => {
+          if (profileError) refetchProfile()
+          if (attendanceError) refetchAttendance()
+          if (feesError) refetchFees()
+        }}
+      />
+    )
+  }
   if (!profile) return null
 
   const presentCount = attendance?.filter((a) => a.status === "PRESENT").length ?? 0
@@ -37,12 +62,13 @@ export function ParentOverview() {
       <DashboardHeader
         greeting={`Welcome back, ${user?.firstName || user?.username}`}
         subtitle={`Here's how ${profile.student_name.split(" ")[0]} is doing at school.`}
+        schoolName={user?.tenantName}
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatCard icon={GraduationCap} label="Student" value={profile.student_name} tone="indigo" />
+            <StatCard icon={GraduationCap} label="Student" value={profile.student_name} tone="brand" />
             <StatCard icon={School} label="Class" value={profile.class_name} tone="blue" />
             <StatCard icon={Receipt} label="Unpaid Invoices" value={unpaidInvoices.length} tone="amber" />
           </div>
@@ -57,32 +83,6 @@ export function ParentOverview() {
             </div>
             <TrendChart points={trendPoints} />
           </Card>
-
-          <Card>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-900">Recent Remarks</p>
-              <Link to="/parent/remarks" className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
-                View All
-              </Link>
-            </div>
-            <div className="space-y-3">
-              {remarks?.slice(0, 3).map((remark) => (
-                <div key={remark.id} className="flex items-start gap-3 border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                    <MessageSquare size={16} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-gray-900">{remark.remark}</p>
-                    <p className="text-xs text-gray-400">
-                      {remark.subject_name} · {remark.teacher_name}
-                    </p>
-                  </div>
-                  <Pill tone="gray">{remark.date}</Pill>
-                </div>
-              ))}
-              {(!remarks || remarks.length === 0) && <p className="text-sm text-gray-400">No remarks yet.</p>}
-            </div>
-          </Card>
         </div>
 
         <div className="space-y-5">
@@ -91,13 +91,13 @@ export function ParentOverview() {
             <RadialProgress value={attendanceRate} label={`${presentCount} of ${attendance?.length ?? 0} days present`} />
           </Card>
 
-          <div className="rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-500 p-5 text-white shadow-sm shadow-indigo-200">
+          <div className="rounded-xl bg-gradient-to-br from-brand-600 to-brand-500 p-5 text-white shadow-sm shadow-brand-200">
             <p className="mb-3 text-sm font-semibold">Next Payment Due</p>
             {nextInvoice ? (
               <>
                 <p className="text-2xl font-semibold">Rs. {nextInvoice.amount}</p>
-                <p className="mb-4 text-sm text-indigo-100">{nextInvoice.description}</p>
-                <div className="flex items-center justify-between text-xs text-indigo-100">
+                <p className="mb-4 text-sm text-brand-100">{nextInvoice.description}</p>
+                <div className="flex items-center justify-between text-xs text-brand-100">
                   <span>Due {nextInvoice.due_date}</span>
                   <Link
                     to="/parent/fees"
@@ -108,7 +108,7 @@ export function ParentOverview() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-indigo-100">No pending fees right now.</p>
+              <p className="text-sm text-brand-100">No pending fees right now.</p>
             )}
           </div>
         </div>

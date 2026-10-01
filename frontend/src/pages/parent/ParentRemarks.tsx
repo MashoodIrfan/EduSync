@@ -1,10 +1,11 @@
 import { useParentRemarks } from "../../api/parent"
-import { Card, PageTitle, Spinner } from "../../components/ui"
+import { Card, LoadError, PageTitle, Spinner } from "../../components/ui"
 
 export function ParentRemarks() {
-  const { data, isLoading } = useParentRemarks()
+  const { data, isLoading, isError, refetch } = useParentRemarks()
 
   if (isLoading) return <Spinner />
+  if (isError) return <LoadError onRetry={() => refetch()} />
 
   return (
     <div>
